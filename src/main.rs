@@ -6,6 +6,8 @@ use crossterm::{
 use std::io;
 use tui::{
     backend::{Backend, CrosstermBackend},
+    layout::Rect,
+    style::{Color, Style},
     widgets::{Block, Borders},
     Frame, Terminal,
 };
@@ -45,8 +47,11 @@ fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
 
 fn draw_daila<B: Backend>(frame: &mut Frame<B>) {
     let size = frame.size();
-    let block = Block::default().title("Block").borders(Borders::ALL);
-    frame.render_widget(block, size);
+    let block = Block::default()
+        .borders(Borders::NONE)
+        .style(Style::default().bg(Color::Green));
+    // .border_style(Style::default().fg(Color::White).bg(Color::Green));
+    frame.render_widget(block, Rect::new(0, 0, 1, 1));
 }
 
 fn draw_activity_map<B: Backend>(frame: &mut Frame<B>) {}
