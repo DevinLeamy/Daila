@@ -1,6 +1,9 @@
-use chrono::Datelike;
-use tui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
+use std::collections::HashMap;
 
+use chrono::Datelike;
+use tui::{buffer::Buffer, layout::Rect, style::Color, symbols::bar::HALF, widgets::Widget};
+
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct CalendarDate {
     day: u32,
     month: u32,
@@ -16,6 +19,26 @@ impl CalendarDate {
             year: now.year() as u32,
         }
     }
+
+    fn days_until(&self, other: Self) -> i64 {
+        let self_date =
+            chrono::NaiveDate::from_ymd_opt(self.year as i32, self.month, self.day).unwrap();
+        let other_date =
+            chrono::NaiveDate::from_ymd_opt(other.year as i32, other.month, other.day).unwrap();
+        self_date.signed_duration_since(other_date).num_days()
+    }
+
+    fn tomorrow(&self) -> Self {
+        let tomorrow = chrono::NaiveDate::from_ymd_opt(self.year as i32, self.month, self.day)
+            .unwrap()
+            .succ_opt()
+            .unwrap();
+        Self {
+            day: tomorrow.day(),
+            month: tomorrow.month(),
+            year: tomorrow.year() as u32,
+        }
+    }
 }
 
 // TODO: Implement From<chrono::DateTime> for CalendarDate.
@@ -24,10 +47,9 @@ impl CalendarDate {
 /**
  * What each tile in the heatmap represents.
  */
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum HeatMapTileScale {
     Day,
-    Month,
-    Year,
 }
 
 /**
@@ -82,9 +104,9 @@ pub struct HeatMap<'a, T: HeatMapValue> {
     // The range of colors displayed in the heatmap.
     color_range: HeatMapColorRange,
     // The number of rows in the heatmap.
-    rows: u32,
+    rows: u16,
     // Values to display in the heatmap.
-    values: Vec<&'a T>,
+    values: HashMap<CalendarDate, &'a T>,
 }
 
 impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
@@ -95,7 +117,7 @@ impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
             heat_range: HeatMapHeatRange(0.0, 255.0),
             color_range: HeatMapColorRange(Color::Black, Color::Green),
             rows: 7,
-            values: vec![],
+            values: HashMap::new(),
         }
     }
 }
@@ -126,37 +148,65 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
         self
     }
 
-    pub fn rows(mut self, rows: u32) -> Self {
+    pub fn rows(mut self, rows: u16) -> Self {
         self.rows = rows;
         self
     }
 
     pub fn values(mut self, values: Vec<&'a T>) -> Self {
-        self.values = values;
+        self.values = values.into_iter().map(|v| (v.heat_map_date(), v)).collect();
         self
     }
 }
 
 impl<'a, T: HeatMapValue> HeatMap<'a, T> {
     fn heat_at_date(&self, date: CalendarDate) -> f32 {
-        todo!()
+        self.values[&date].heat_map_value()
     }
 
     fn color_from_heat(&self, heat: f32) -> Color {
-        todo!()
+        // TODO: LERP between the low and high colors.
+        if heat == 0.0 {
+            self.color_range.0
+        } else {
+            self.color_range.1
+        }
     }
 
-    fn date_to_position(&self, date: CalendarDate, area: &Rect) -> (u32, u32) {
-        todo!()
+    fn date_to_position(&self, date: CalendarDate, area: &Rect) -> (u16, u16) {
+        if self.tile_scale == HeatMapTileScale::Day {
+            // Does not have spaces between days.
+            let days_from_start = self.date_range.0.days_until(date) as u16;
+            let x = area.x + days_from_start / self.rows;
+            let y = area.y + days_from_start % self.rows;
+            (x, y)
+        } else {
+            todo!("Implement other tile scales.")
+        }
     }
 
     fn draw_date(&self, date: CalendarDate, buffer: &mut Buffer, area: &Rect) {
-        todo!()
+        let color = self.color_from_heat(self.heat_at_date(date));
+        let (x, y) = self.date_to_position(date, area);
+        let cell = buffer.get_mut(x, y);
+
+        cell.set_fg(color);
+        cell.set_symbol(HALF);
     }
 }
 
 impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
+    /**
+     * Draw the heatmap.
+     */
     fn render(self, area: Rect, buffer: &mut Buffer) {
-        todo!()
+        let mut date = self.date_range.0;
+        loop {
+            self.draw_date(date, buffer, &area);
+            if date == self.date_range.1 {
+                break;
+            }
+            date = date.tomorrow();
+        }
     }
 }
