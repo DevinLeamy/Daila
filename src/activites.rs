@@ -1,8 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::heatmap::{CalendarDate, HeatMapValue};
+use crate::{
+    file::File,
+    heatmap::{CalendarDate, HeatMapValue},
+};
 
 #[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct ActivityId(u32);
@@ -30,17 +33,23 @@ impl HeatMapValue for Activity {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+pub struct ActivityType {
+    id: ActivityId,
+    name: String,
+}
+
+impl ActivityType {
+    fn new(id: ActivityId, name: String) -> Self {
+        Self { id, name }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ActivityTypesStore {
     types: HashMap<ActivityId, ActivityType>,
 }
 
 impl ActivityTypesStore {
-    // For debugging purposes.
-    pub fn new() -> Self {
-        Self {
-            types: HashMap::new(),
-        }
-    }
     pub fn create_new_activity(&mut self, name: String) -> ActivityId {
         let id = self.next_unused_id();
         let activity_type = ActivityType::new(id, name);
@@ -66,21 +75,13 @@ impl ActivityTypesStore {
     }
 }
 
-impl ActivityTypesStore {}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct ActivityType {
-    id: ActivityId,
-    name: String,
-}
-
-impl ActivityType {
-    fn new(id: ActivityId, name: String) -> Self {
-        Self { id, name }
+impl File for ActivityTypesStore {
+    fn path() -> PathBuf {
+        PathBuf::from("/Users/Devin/Desktop/Playground/Fall2022/daila-rs/data/activity_types.json")
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ActivitiesStore {
     days: HashMap<CalendarDate, Vec<Activity>>,
 }
@@ -108,5 +109,11 @@ impl ActivitiesStore {
 
     pub fn activities(&self) -> Vec<&Activity> {
         self.days.values().flatten().collect()
+    }
+}
+
+impl File for ActivitiesStore {
+    fn path() -> PathBuf {
+        PathBuf::from("/Users/Devin/Desktop/Playground/Fall2022/daila-rs/data/activities.json")
     }
 }

@@ -5,6 +5,8 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
+use daila::Daila;
+use file::File;
 use heatmap::{CalendarDate, HeatMap};
 use rand::{thread_rng, Rng};
 use std::io;
@@ -14,6 +16,8 @@ use tui::{
 };
 
 mod activites;
+mod daila;
+mod file;
 mod heatmap;
 
 use activites::{ActivitiesStore, Activity, ActivityTypesStore};
@@ -36,29 +40,28 @@ fn main() -> Result<(), io::Error> {
 }
 
 fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
-    let mut activity_types = ActivityTypesStore::new();
-    let mut activites = ActivitiesStore::new();
+    let (mut activity_types, mut activities) = Daila::init();
 
-    let running_id = activity_types.create_new_activity(String::from("Running"));
-    let mut rand = thread_rng();
+    // let running_id = activity_types.create_new_activity(String::from("Running"));
+    // let mut rand = thread_rng();
 
-    activites.add_activity(Activity::new(
-        running_id,
-        CalendarDate::from_ymd_opt(2020, 1, 1).unwrap(),
-    ));
+    // activities.add_activity(Activity::new(
+    //     running_id,
+    //     CalendarDate::from_ymd_opt(2020, 1, 1).unwrap(),
+    // ));
 
-    // Generate random data.
-    let current_day = CalendarDate::from_ymd_opt(2022, 1, 1).unwrap();
-    for i in 0..1000 {
-        let date = current_day + Days::new(i);
+    // // Generate random data.
+    // let current_day = CalendarDate::from_ymd_opt(2022, 1, 1).unwrap();
+    // for i in 0..1000 {
+    //     let date = current_day + Days::new(i);
 
-        if rand.gen::<f32>() > 0.2 {
-            activites.add_activity(Activity::new(running_id, date));
-        }
-    }
+    //     if rand.gen::<f32>() > 0.2 {
+    //         activities.add_activity(Activity::new(running_id, date));
+    //     }
+    // }
 
     loop {
-        let activites_clone = activites.clone();
+        let activites_clone = activities.clone();
         terminal.draw(move |frame| {
             draw_daila(frame, activites_clone);
         })?;
@@ -69,6 +72,10 @@ fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
             }
         }
     }
+
+    // Save any unsaved changes.
+    activity_types.save();
+    activities.save();
 
     Ok(())
 }
