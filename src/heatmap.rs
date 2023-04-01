@@ -1,19 +1,17 @@
+#![allow(unused)]
 use std::collections::HashMap;
 
-use chrono::{DateTime, Days, NaiveDate};
+use chrono::{Days, NaiveDate};
 use tui::{
     buffer::Buffer,
-    layout::{Corner, Direction, Margin, Rect},
+    layout::Rect,
     style::Color,
     symbols::bar::HALF,
     text::{Span, Spans},
-    widgets::{Block, Borders, List, ListItem, Widget},
+    widgets::{List, ListItem, Widget},
 };
 
 pub type CalendarDate = NaiveDate;
-
-// TODO: Implement From<chrono::DateTime> for CalendarDate.
-// TODO: Implement From<time::Date> for CalendarDate.
 
 /**
  * What each tile in the heatmap represents.

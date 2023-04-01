@@ -34,8 +34,8 @@ impl HeatMapValue for Activity {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ActivityType {
-    id: ActivityId,
-    name: String,
+    pub id: ActivityId,
+    pub name: String,
 }
 
 impl ActivityType {
@@ -87,12 +87,6 @@ pub struct ActivitiesStore {
 }
 
 impl ActivitiesStore {
-    pub fn new() -> Self {
-        Self {
-            days: HashMap::new(),
-        }
-    }
-
     pub fn add_activity(&mut self, activity: Activity) {
         let date = activity.date;
         let activities = self.days.entry(date).or_insert_with(Vec::new);

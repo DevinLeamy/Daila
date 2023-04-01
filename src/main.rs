@@ -20,7 +20,7 @@ mod daila;
 mod file;
 mod heatmap;
 
-use activites::{ActivitiesStore, Activity, ActivityTypesStore};
+use activites::{ActivitiesStore, Activity, ActivityId, ActivityTypesStore};
 
 fn main() -> Result<(), io::Error> {
     // Setup.
@@ -42,23 +42,17 @@ fn main() -> Result<(), io::Error> {
 fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
     let (mut activity_types, mut activities) = Daila::init();
 
-    // let running_id = activity_types.create_new_activity(String::from("Running"));
-    // let mut rand = thread_rng();
+    let mut rand = thread_rng();
 
-    // activities.add_activity(Activity::new(
-    //     running_id,
-    //     CalendarDate::from_ymd_opt(2020, 1, 1).unwrap(),
-    // ));
+    // Generate random data.
+    let current_day = CalendarDate::from_ymd_opt(2022, 1, 1).unwrap();
+    for i in 0..1000 {
+        let date = current_day + Days::new(i);
 
-    // // Generate random data.
-    // let current_day = CalendarDate::from_ymd_opt(2022, 1, 1).unwrap();
-    // for i in 0..1000 {
-    //     let date = current_day + Days::new(i);
-
-    //     if rand.gen::<f32>() > 0.2 {
-    //         activities.add_activity(Activity::new(running_id, date));
-    //     }
-    // }
+        if rand.gen::<f32>() > 0.2 {
+            activities.add_activity(Activity::new(activity_types.activity_types()[0].id, date));
+        }
+    }
 
     loop {
         let activites_clone = activities.clone();
