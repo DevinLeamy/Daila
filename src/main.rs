@@ -81,5 +81,5 @@ fn draw_daila<B: Backend>(frame: &mut Frame<B>, activites_store: ActivitiesStore
 
 fn draw_activity_map<B: Backend>(frame: &mut Frame<B>, activites_store: &ActivitiesStore) {
     let heatmap = HeatMap::default().values(activites_store.activities());
-    frame.render_widget(heatmap, frame.size())
+    frame.render_widget(heatmap, frame.size());
 }

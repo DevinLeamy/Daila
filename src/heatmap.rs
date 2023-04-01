@@ -1,7 +1,14 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Days, NaiveDate};
-use tui::{buffer::Buffer, layout::Rect, style::Color, symbols::bar::HALF, widgets::Widget};
+use tui::{
+    buffer::Buffer,
+    layout::{Corner, Direction, Margin, Rect},
+    style::Color,
+    symbols::bar::HALF,
+    text::{Span, Spans},
+    widgets::{Block, Borders, List, ListItem, Widget},
+};
 
 pub type CalendarDate = NaiveDate;
 
@@ -158,6 +165,23 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
         cell.set_fg(color);
         cell.set_symbol(HALF);
     }
+
+    fn width(&self) -> u16 {
+        if self.tile_scale == HeatMapTileScale::Day {
+            let days = self
+                .date_range
+                .1
+                .signed_duration_since(self.date_range.0)
+                .num_days() as u16;
+            days / self.rows * 2
+        } else {
+            todo!("Implement other tile scales.")
+        }
+    }
+
+    fn height(&self) -> u16 {
+        self.rows
+    }
 }
 
 impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
@@ -165,6 +189,10 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
      * Draw the heatmap.
      */
     fn render(self, area: Rect, buffer: &mut Buffer) {
+        // Assert that there is enough space to draw the heatmap.
+        assert!(area.width >= self.width());
+        assert!(area.height >= self.height());
+
         let mut date = self.date_range.0;
         loop {
             self.draw_date(date, buffer, &area);
@@ -173,5 +201,26 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
             }
             date = date.checked_add_days(Days::new(1)).unwrap();
         }
+
+        let start_date = ListItem::new(vec![Spans::from(vec![
+            Span::raw("Start Date: "),
+            Span::raw(self.date_range.0.to_string()),
+        ])]);
+        let end_date = ListItem::new(vec![Spans::from(vec![
+            Span::raw("End Date: "),
+            Span::raw(self.date_range.1.to_string()),
+        ])]);
+
+        let dates = List::new(vec![start_date, end_date]);
+
+        dates.render(
+            Rect::new(
+                area.x,
+                area.y + self.height(),
+                area.width,
+                area.height - self.height(),
+            ),
+            buffer,
+        );
     }
 }
