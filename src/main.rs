@@ -7,20 +7,16 @@ use crossterm::{
 
 use heatmap::{CalendarDate, HeatMap};
 use rand::{thread_rng, Rng};
-use serde::{Deserialize, Serialize};
 use std::io;
 use tui::{
     backend::{Backend, CrosstermBackend},
-    layout::Rect,
-    style::{Color, Style},
-    widgets::{Block, Borders},
     Frame, Terminal,
 };
 
 mod activites;
 mod heatmap;
 
-use activites::{ActivitiesStore, Activity, ActivityType};
+use activites::{ActivitiesStore, Activity, ActivityTypesStore};
 
 fn main() -> Result<(), io::Error> {
     // Setup.
@@ -40,12 +36,14 @@ fn main() -> Result<(), io::Error> {
 }
 
 fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
+    let mut activity_types = ActivityTypesStore::new();
     let mut activites = ActivitiesStore::new();
-    let running = ActivityType::new(String::from("Running"));
+
+    let running_id = activity_types.create_new_activity(String::from("Running"));
     let mut rand = thread_rng();
 
     activites.add_activity(Activity::new(
-        running.clone(),
+        running_id,
         CalendarDate::from_ymd_opt(2020, 1, 1).unwrap(),
     ));
 
@@ -55,7 +53,7 @@ fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
         let date = current_day + Days::new(i);
 
         if rand.gen::<f32>() > 0.2 {
-            activites.add_activity(Activity::new(running.clone(), date));
+            activites.add_activity(Activity::new(running_id, date));
         }
     }
 
