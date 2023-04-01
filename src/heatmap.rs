@@ -1,45 +1,9 @@
 use std::collections::HashMap;
 
-use chrono::Datelike;
+use chrono::{DateTime, Days, NaiveDate};
 use tui::{buffer::Buffer, layout::Rect, style::Color, symbols::bar::HALF, widgets::Widget};
 
-#[derive(Clone, Copy, Eq, PartialEq, Hash)]
-pub struct CalendarDate {
-    day: u32,
-    month: u32,
-    year: u32,
-}
-
-impl CalendarDate {
-    fn today() -> Self {
-        let now = chrono::Local::now();
-        Self {
-            day: now.day(),
-            month: now.month(),
-            year: now.year() as u32,
-        }
-    }
-
-    fn days_until(&self, other: Self) -> i64 {
-        let self_date =
-            chrono::NaiveDate::from_ymd_opt(self.year as i32, self.month, self.day).unwrap();
-        let other_date =
-            chrono::NaiveDate::from_ymd_opt(other.year as i32, other.month, other.day).unwrap();
-        self_date.signed_duration_since(other_date).num_days()
-    }
-
-    fn tomorrow(&self) -> Self {
-        let tomorrow = chrono::NaiveDate::from_ymd_opt(self.year as i32, self.month, self.day)
-            .unwrap()
-            .succ_opt()
-            .unwrap();
-        Self {
-            day: tomorrow.day(),
-            month: tomorrow.month(),
-            year: tomorrow.year() as u32,
-        }
-    }
-}
+pub type CalendarDate = NaiveDate;
 
 // TODO: Implement From<chrono::DateTime> for CalendarDate.
 // TODO: Implement From<time::Date> for CalendarDate.
@@ -67,12 +31,10 @@ impl HeatMapDateRange {
      * One year ending today.
      */
     fn one_year_ending_today() -> Self {
-        let today = CalendarDate::today();
-        let one_year_ago = CalendarDate {
-            day: today.day,
-            month: today.month,
-            year: today.year - 1,
-        };
+        let today = chrono::Local::now().date_naive();
+        let one_year_ago = today
+            .checked_sub_signed(chrono::Duration::days(365))
+            .unwrap();
         Self(one_year_ago, today)
     }
 }
@@ -161,7 +123,10 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
 
 impl<'a, T: HeatMapValue> HeatMap<'a, T> {
     fn heat_at_date(&self, date: CalendarDate) -> f32 {
-        self.values[&date].heat_map_value()
+        match self.values.get(&date) {
+            Some(value) => value.heat_map_value(),
+            None => 0.0,
+        }
     }
 
     fn color_from_heat(&self, heat: f32) -> Color {
@@ -176,10 +141,10 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
     fn date_to_position(&self, date: CalendarDate, area: &Rect) -> (u16, u16) {
         if self.tile_scale == HeatMapTileScale::Day {
             // Does not have spaces between days.
-            let days_from_start = self.date_range.0.days_until(date) as u16;
+            let days_from_start = self.date_range.1.signed_duration_since(date).num_days() as u16;
             let x = area.x + days_from_start / self.rows;
             let y = area.y + days_from_start % self.rows;
-            (x, y)
+            (x * 2, y)
         } else {
             todo!("Implement other tile scales.")
         }
@@ -206,7 +171,7 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
             if date == self.date_range.1 {
                 break;
             }
-            date = date.tomorrow();
+            date = date.checked_add_days(Days::new(1)).unwrap();
         }
     }
 }

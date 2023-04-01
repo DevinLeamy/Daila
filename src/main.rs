@@ -1,8 +1,13 @@
+use chrono::Days;
 use crossterm::{
     event::{self, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+
+use heatmap::{CalendarDate, HeatMap};
+use rand::{thread_rng, Rng};
+use serde::{Deserialize, Serialize};
 use std::io;
 use tui::{
     backend::{Backend, CrosstermBackend},
@@ -12,7 +17,10 @@ use tui::{
     Frame, Terminal,
 };
 
+mod activites;
 mod heatmap;
+
+use activites::{ActivitiesStore, Activity, ActivityType};
 
 fn main() -> Result<(), io::Error> {
     // Setup.
@@ -32,8 +40,30 @@ fn main() -> Result<(), io::Error> {
 }
 
 fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
+    let mut activites = ActivitiesStore::new();
+    let running = ActivityType::new(String::from("Running"));
+    let mut rand = thread_rng();
+
+    activites.add_activity(Activity::new(
+        running.clone(),
+        CalendarDate::from_ymd_opt(2020, 1, 1).unwrap(),
+    ));
+
+    // Generate random data.
+    let current_day = CalendarDate::from_ymd_opt(2022, 1, 1).unwrap();
+    for i in 0..1000 {
+        let date = current_day + Days::new(i);
+
+        if rand.gen::<f32>() > 0.2 {
+            activites.add_activity(Activity::new(running.clone(), date));
+        }
+    }
+
     loop {
-        terminal.draw(draw_daila)?;
+        let activites_clone = activites.clone();
+        terminal.draw(move |frame| {
+            draw_daila(frame, activites_clone);
+        })?;
 
         if let Event::Key(key) = event::read()? {
             if let KeyCode::Char('q') = key.code {
@@ -45,13 +75,11 @@ fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
     Ok(())
 }
 
-fn draw_daila<B: Backend>(frame: &mut Frame<B>) {
-    let size = frame.size();
-    let block = Block::default()
-        .borders(Borders::NONE)
-        .style(Style::default().bg(Color::Green));
-    // .border_style(Style::default().fg(Color::White).bg(Color::Green));
-    frame.render_widget(block, Rect::new(0, 0, 1, 1));
+fn draw_daila<B: Backend>(frame: &mut Frame<B>, activites_store: ActivitiesStore) {
+    draw_activity_map(frame, &activites_store)
 }
 
-fn draw_activity_map<B: Backend>(frame: &mut Frame<B>) {}
+fn draw_activity_map<B: Backend>(frame: &mut Frame<B>, activites_store: &ActivitiesStore) {
+    let heatmap = HeatMap::default().values(activites_store.activities());
+    frame.render_widget(heatmap, frame.size())
+}
