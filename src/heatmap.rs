@@ -6,12 +6,22 @@ use tui::{
     buffer::Buffer,
     layout::Rect,
     style::Color,
-    symbols::bar::HALF,
+    symbols::{
+        bar::HALF,
+        line::{TOP_RIGHT, VERTICAL},
+    },
     text::{Span, Spans, Text},
     widgets::{List, ListItem, Paragraph, Widget},
 };
 
 pub type CalendarDate = NaiveDate;
+
+// TODO: It would be nice to have HeatMapCell(u16, u16) and then functions:
+// HeatMapCell -> (x, y)
+// HeatMapCell -> CalendarDate
+// CalendarDate -> HeatMapCell
+//
+// It would make the code easier to work with.
 
 /**
  * What each tile in the heatmap represents.
@@ -154,8 +164,6 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
         }
     }
 
-    fn draw_month_borders(&self) {}
-
     fn heat_at_date(&self, date: CalendarDate) -> f32 {
         match self.values.get(&date) {
             Some(value) => value.heat_map_value(),
@@ -178,7 +186,16 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
         let x = area.x + days_from_start / self.rows;
         // We add one to the y coordinate to account for the month labels.
         let y = area.y + 1 + days_from_start % self.rows;
+        assert!(self.position_to_date(2 * x, y, area) == date);
         (x * 2, y)
+    }
+
+    fn position_to_date(&self, x: u16, y: u16, area: &Rect) -> CalendarDate {
+        let days_from_start = (x - area.x) / 2 * self.rows + (y - area.y - 1); // -1 for month labels.
+        self.date_range
+            .0
+            .checked_add_days(Days::new(days_from_start.into()))
+            .unwrap()
     }
 
     fn draw_date(&self, date: CalendarDate, buffer: &mut Buffer, area: &Rect) {
@@ -188,6 +205,24 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
 
         cell.set_fg(color);
         cell.set_symbol(HALF);
+    }
+
+    /**
+     * Draw the border betweens months.
+     */
+    fn draw_date_month_border(&self, date: CalendarDate, buffer: &mut Buffer, area: &Rect) {
+        let (x, y) = self.date_to_position(date, area);
+        let current_month = date.month();
+        let next_col_day = self.position_to_date(x + 2, y, area);
+
+        if current_month != next_col_day.month() && next_col_day <= self.date_range.1 {
+            let cell = buffer.get_mut(x + 1, y).set_fg(Color::Gray);
+            if y == area.y + 1 {
+                cell.set_symbol("╷");
+            } else {
+                cell.set_symbol(VERTICAL);
+            }
+        }
     }
 
     fn width(&self) -> u16 {
@@ -216,6 +251,7 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
         let mut date = self.date_range.0;
         while date <= self.date_range.1 {
             self.draw_date(date, buffer, &area);
+            self.draw_date_month_border(date, buffer, &area);
             date = date.checked_add_days(Days::new(1)).unwrap();
         }
         self.draw_month_labels(&area, buffer);
