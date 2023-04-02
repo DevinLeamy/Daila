@@ -94,7 +94,8 @@ pub struct HeatMap<'a, T: HeatMapValue> {
 impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
     fn default() -> Self {
         Self {
-            date_range: HeatMapDateRange::current_year(),
+            // date_range: HeatMapDateRange::current_year(),
+            date_range: HeatMapDateRange::one_year_ending_today(),
             heat_range: HeatMapHeatRange(0.0, 255.0),
             color_range: HeatMapColorRange(Color::Black, Color::Green),
             rows: 7,
@@ -164,6 +165,32 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
         }
     }
 
+    /**
+     * Draw the starting year and ending year, if the ending year is different,
+     * at the bottom left of the heatmap.
+     */
+    fn draw_year_labels(&self, area: &Rect, buffer: &mut Buffer) {
+        let start_year = self.date_range.0.year();
+        let end_year = self.date_range.1.year();
+
+        let year_text_str = if start_year == end_year {
+            format!("{}", start_year)
+        } else {
+            format!("{} - {}", start_year, end_year)
+        };
+
+        let year_text = Paragraph::new(Text::raw(&year_text_str));
+        year_text.render(
+            Rect::new(
+                area.x,
+                area.y + self.height() - 1,
+                year_text_str.len().try_into().unwrap(),
+                1,
+            ),
+            buffer,
+        );
+    }
+
     fn heat_at_date(&self, date: CalendarDate) -> f32 {
         match self.values.get(&date) {
             Some(value) => value.heat_map_value(),
@@ -209,6 +236,9 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
 
     /**
      * Draw the border betweens months.
+     *
+     * TODO: Draw horizontal lines as well (this requires more work because there is it's a
+     *       full character worth of space - you need to "merge" the characters).
      */
     fn draw_date_month_border(&self, date: CalendarDate, buffer: &mut Buffer, area: &Rect) {
         let (x, y) = self.date_to_position(date, area);
@@ -235,7 +265,7 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
     }
 
     fn height(&self) -> u16 {
-        self.rows
+        self.rows + 2
     }
 }
 
@@ -255,5 +285,6 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
             date = date.checked_add_days(Days::new(1)).unwrap();
         }
         self.draw_month_labels(&area, buffer);
+        self.draw_year_labels(&area, buffer);
     }
 }
