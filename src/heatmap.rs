@@ -62,8 +62,6 @@ pub trait HeatMapValue {
 }
 
 pub struct HeatMap<'a, T: HeatMapValue> {
-    // The scale of the heatmap.
-    tile_scale: HeatMapTileScale,
     // The range of dates displayed in the heatmap.
     date_range: HeatMapDateRange,
     // The range of heat values displayed in the heatmap.
@@ -79,7 +77,6 @@ pub struct HeatMap<'a, T: HeatMapValue> {
 impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
     fn default() -> Self {
         Self {
-            tile_scale: HeatMapTileScale::Day,
             date_range: HeatMapDateRange::one_year_ending_today(),
             heat_range: HeatMapHeatRange(0.0, 255.0),
             color_range: HeatMapColorRange(Color::Black, Color::Green),
@@ -93,11 +90,6 @@ impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
 impl<'a, T: HeatMapValue> HeatMap<'a, T> {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn tile_scale(mut self, tile_scale: HeatMapTileScale) -> Self {
-        self.tile_scale = tile_scale;
-        self
     }
 
     pub fn date_range(mut self, start: CalendarDate, end: CalendarDate) -> Self {
@@ -144,15 +136,11 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
     }
 
     fn date_to_position(&self, date: CalendarDate, area: &Rect) -> (u16, u16) {
-        if self.tile_scale == HeatMapTileScale::Day {
-            // Does not have spaces between days.
-            let days_from_start = self.date_range.1.signed_duration_since(date).num_days() as u16;
-            let x = area.x + days_from_start / self.rows;
-            let y = area.y + days_from_start % self.rows;
-            (x * 2, y)
-        } else {
-            todo!("Implement other tile scales.")
-        }
+        // Does not have spaces between days.
+        let days_from_start = self.date_range.1.signed_duration_since(date).num_days() as u16;
+        let x = area.x + days_from_start / self.rows;
+        let y = area.y + days_from_start % self.rows;
+        (x * 2, y)
     }
 
     fn draw_date(&self, date: CalendarDate, buffer: &mut Buffer, area: &Rect) {
@@ -165,16 +153,12 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
     }
 
     fn width(&self) -> u16 {
-        if self.tile_scale == HeatMapTileScale::Day {
-            let days = self
-                .date_range
-                .1
-                .signed_duration_since(self.date_range.0)
-                .num_days() as u16;
-            days / self.rows * 2
-        } else {
-            todo!("Implement other tile scales.")
-        }
+        let days = self
+            .date_range
+            .1
+            .signed_duration_since(self.date_range.0)
+            .num_days() as u16;
+        days / self.rows * 2
     }
 
     fn height(&self) -> u16 {
