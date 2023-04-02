@@ -42,17 +42,17 @@ fn main() -> Result<(), io::Error> {
 fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
     let (mut activity_types, mut activities) = Daila::init();
 
-    let mut rand = thread_rng();
+    // let mut rand = thread_rng();
 
     // Generate random data.
-    let current_day = CalendarDate::from_ymd_opt(2022, 1, 1).unwrap();
-    for i in 0..1000 {
-        let date = current_day + Days::new(i);
+    // let current_day = CalendarDate::from_ymd_opt(2022, 1, 1).unwrap();
+    // for i in 0..1000 {
+    //     let date = current_day + Days::new(i);
 
-        if rand.gen::<f32>() > 0.2 {
-            activities.add_activity(Activity::new(activity_types.activity_types()[0].id, date));
-        }
-    }
+    //     if rand.gen::<f32>() > 0.2 {
+    //         activities.add_activity(Activity::new(activity_types.activity_types()[0].id, date));
+    //     }
+    // }
 
     loop {
         let activites_clone = activities.clone();

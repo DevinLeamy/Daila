@@ -1,14 +1,14 @@
 #![allow(unused)]
 use std::collections::HashMap;
 
-use chrono::{Days, NaiveDate};
+use chrono::{Datelike, Days, NaiveDate};
 use tui::{
     buffer::Buffer,
     layout::Rect,
     style::Color,
     symbols::bar::HALF,
-    text::{Span, Spans},
-    widgets::{List, ListItem, Widget},
+    text::{Span, Spans, Text},
+    widgets::{List, ListItem, Paragraph, Widget},
 };
 
 pub type CalendarDate = NaiveDate;
@@ -35,12 +35,19 @@ impl HeatMapDateRange {
     /**
      * One year ending today.
      */
-    fn one_year_ending_today() -> Self {
+    pub fn one_year_ending_today() -> Self {
         let today = chrono::Local::now().date_naive();
         let one_year_ago = today
             .checked_sub_signed(chrono::Duration::days(365))
             .unwrap();
         Self(one_year_ago, today)
+    }
+
+    pub fn current_year() -> Self {
+        let today = chrono::Local::now().date_naive();
+        let start_of_year = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap();
+        let end_of_year = NaiveDate::from_ymd_opt(today.year(), 12, 31).unwrap();
+        Self(start_of_year, end_of_year)
     }
 }
 
@@ -77,7 +84,7 @@ pub struct HeatMap<'a, T: HeatMapValue> {
 impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
     fn default() -> Self {
         Self {
-            date_range: HeatMapDateRange::one_year_ending_today(),
+            date_range: HeatMapDateRange::current_year(),
             heat_range: HeatMapHeatRange(0.0, 255.0),
             color_range: HeatMapColorRange(Color::Black, Color::Green),
             rows: 7,
@@ -119,6 +126,36 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
 }
 
 impl<'a, T: HeatMapValue> HeatMap<'a, T> {
+    fn draw_month_labels(&self, area: &Rect, buffer: &mut Buffer) {
+        let mut date = self.date_range.0;
+        let mut last_display_month = -1;
+        while date < self.date_range.1 {
+            let month = date.month() as i32;
+
+            if last_display_month != month {
+                /**
+                 * Display the current month starting at the top of the
+                 * heatmap starting at the leftmost column starting at that
+                 * month.
+                 */
+                let (x, _) = self.date_to_position(date, area);
+                let y = area.y;
+
+                let month_name = date.format("%b").to_string();
+                let month_text = Paragraph::new(Text::raw(&month_name));
+                month_text.render(
+                    Rect::new(x, y, month_name.len().try_into().unwrap(), 1),
+                    buffer,
+                );
+                last_display_month = month;
+            }
+
+            date = date.checked_add_days(Days::new(self.rows.into())).unwrap();
+        }
+    }
+
+    fn draw_month_borders(&self) {}
+
     fn heat_at_date(&self, date: CalendarDate) -> f32 {
         match self.values.get(&date) {
             Some(value) => value.heat_map_value(),
@@ -137,9 +174,10 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
 
     fn date_to_position(&self, date: CalendarDate, area: &Rect) -> (u16, u16) {
         // Does not have spaces between days.
-        let days_from_start = self.date_range.1.signed_duration_since(date).num_days() as u16;
+        let days_from_start = date.signed_duration_since(self.date_range.0).num_days() as u16;
         let x = area.x + days_from_start / self.rows;
-        let y = area.y + days_from_start % self.rows;
+        // We add one to the y coordinate to account for the month labels.
+        let y = area.y + 1 + days_from_start % self.rows;
         (x * 2, y)
     }
 
@@ -176,33 +214,10 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
         assert!(area.height >= self.height());
 
         let mut date = self.date_range.0;
-        loop {
+        while date <= self.date_range.1 {
             self.draw_date(date, buffer, &area);
-            if date == self.date_range.1 {
-                break;
-            }
             date = date.checked_add_days(Days::new(1)).unwrap();
         }
-
-        let start_date = ListItem::new(vec![Spans::from(vec![
-            Span::raw("Start Date: "),
-            Span::raw(self.date_range.0.to_string()),
-        ])]);
-        let end_date = ListItem::new(vec![Spans::from(vec![
-            Span::raw("End Date: "),
-            Span::raw(self.date_range.1.to_string()),
-        ])]);
-
-        let dates = List::new(vec![start_date, end_date]);
-
-        dates.render(
-            Rect::new(
-                area.x,
-                area.y + self.height(),
-                area.width,
-                area.height - self.height(),
-            ),
-            buffer,
-        );
+        self.draw_month_labels(&area, buffer);
     }
 }
