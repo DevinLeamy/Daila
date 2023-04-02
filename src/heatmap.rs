@@ -1,4 +1,4 @@
-#![allow(unused)]
+#![allow(dead_code)]
 use std::collections::HashMap;
 
 use chrono::{Datelike, Days, NaiveDate};
@@ -6,12 +6,9 @@ use tui::{
     buffer::Buffer,
     layout::Rect,
     style::Color,
-    symbols::{
-        bar::HALF,
-        line::{TOP_RIGHT, VERTICAL},
-    },
-    text::{Span, Spans, Text},
-    widgets::{List, ListItem, Paragraph, Widget},
+    symbols::{bar::HALF, line::VERTICAL},
+    text::Text,
+    widgets::{Paragraph, Widget},
 };
 
 pub type CalendarDate = NaiveDate;
@@ -94,8 +91,7 @@ pub struct HeatMap<'a, T: HeatMapValue> {
 impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
     fn default() -> Self {
         Self {
-            // date_range: HeatMapDateRange::current_year(),
-            date_range: HeatMapDateRange::one_year_ending_today(),
+            date_range: HeatMapDateRange::current_year(),
             heat_range: HeatMapHeatRange(0.0, 255.0),
             color_range: HeatMapColorRange(Color::Black, Color::Green),
             rows: 7,
@@ -144,7 +140,7 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
             let month = date.month() as i32;
 
             if last_display_month != month {
-                /**
+                /*
                  * Display the current month starting at the top of the
                  * heatmap starting at the leftmost column starting at that
                  * month.
@@ -247,7 +243,7 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
 
         if current_month != next_col_day.month() && next_col_day <= self.date_range.1 {
             let cell = buffer.get_mut(x + 1, y).set_fg(Color::Gray);
-            if y == area.y + 1 {
+            if y == area.y + 1 || next_col_day.day() == 1 {
                 cell.set_symbol("╷");
             } else {
                 cell.set_symbol(VERTICAL);
@@ -274,7 +270,7 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
      * Draw the heatmap.
      */
     fn render(self, area: Rect, buffer: &mut Buffer) {
-        // Assert that there is enough space to draw the heatmap.
+        // // Assert that there is enough space to draw the heatmap.
         assert!(area.width >= self.width());
         assert!(area.height >= self.height());
 

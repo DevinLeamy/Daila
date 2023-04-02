@@ -1,3 +1,4 @@
+use activity_selector::ActivitySelector;
 use chrono::Days;
 use crossterm::{
     event::{self, Event, KeyCode},
@@ -12,15 +13,17 @@ use rand::{thread_rng, Rng};
 use std::io;
 use tui::{
     backend::{Backend, CrosstermBackend},
+    layout::{Constraint, Direction, Layout},
     Frame, Terminal,
 };
 
 mod activites;
+mod activity_selector;
 mod daila;
 mod file;
 mod heatmap;
 
-use activites::{ActivitiesStore, Activity, ActivityId, ActivityTypesStore};
+use activites::{ActivitiesStore, Activity, ActivityId, ActivityOption, ActivityTypesStore};
 
 fn main() -> Result<(), io::Error> {
     // Setup.
@@ -56,8 +59,9 @@ fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
 
     loop {
         let activites_clone = activities.clone();
+        let activity_types_clone = activity_types.clone();
         terminal.draw(move |frame| {
-            draw_daila(frame, activites_clone);
+            draw_daila(frame, activites_clone, activity_types_clone);
         })?;
 
         if let Event::Key(key) = event::read()? {
@@ -74,11 +78,25 @@ fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
     Ok(())
 }
 
-fn draw_daila<B: Backend>(frame: &mut Frame<B>, activites_store: ActivitiesStore) {
-    draw_activity_map(frame, &activites_store)
-}
+fn draw_daila<B: Backend>(
+    frame: &mut Frame<B>,
+    activites_store: ActivitiesStore,
+    activity_types: ActivityTypesStore,
+) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+        .split(frame.size());
 
-fn draw_activity_map<B: Backend>(frame: &mut Frame<B>, activites_store: &ActivitiesStore) {
+    let options = activites::activity_options(
+        &activity_types,
+        &activites_store,
+        chrono::Local::now().date_naive(),
+    );
     let heatmap = HeatMap::default().values(activites_store.activities());
-    frame.render_widget(heatmap, frame.size());
+    let selector =
+        ActivitySelector::<ActivityOption>::default().values(options.iter().map(|o| o).collect());
+
+    frame.render_widget(selector, chunks[0]);
+    frame.render_widget(heatmap, chunks[1]);
 }

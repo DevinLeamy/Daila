@@ -1,8 +1,10 @@
+#![allow(dead_code)]
 use std::{collections::HashMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    activity_selector::ActivitySelectorValue,
     file::File,
     heatmap::{CalendarDate, HeatMapValue},
 };
@@ -101,6 +103,16 @@ impl ActivitiesStore {
         self.days.get_mut(&date).unwrap()
     }
 
+    pub fn activity_completed(&self, date: CalendarDate, activity_type: &ActivityType) -> bool {
+        for activity in self.days.get(&date).unwrap_or(&Vec::new()) {
+            if activity.activity_id == activity_type.id {
+                return true;
+            }
+        }
+
+        false
+    }
+
     pub fn activities(&self) -> Vec<&Activity> {
         self.days.values().flatten().collect()
     }
@@ -110,4 +122,44 @@ impl File for ActivitiesStore {
     fn path() -> PathBuf {
         PathBuf::from("/Users/Devin/Desktop/Playground/Fall2022/daila-rs/data/activities.json")
     }
+}
+
+#[derive(Clone)]
+pub struct ActivityOption {
+    activity_type: ActivityType,
+    completed: bool,
+}
+
+impl ActivitySelectorValue for ActivityOption {
+    fn name(&self) -> &str {
+        self.activity_type.name.as_str()
+    }
+
+    fn completed(&self) -> bool {
+        self.completed
+    }
+}
+
+impl ActivityOption {
+    pub fn new(activity_type: ActivityType, completed: bool) -> Self {
+        Self {
+            activity_type,
+            completed,
+        }
+    }
+}
+
+pub fn activity_options(
+    activity_types: &ActivityTypesStore,
+    activities: &ActivitiesStore,
+    date: CalendarDate,
+) -> Vec<ActivityOption> {
+    activity_types
+        .activity_types()
+        .into_iter()
+        .map(|activity_type| {
+            let completed = activities.activity_completed(date, activity_type);
+            ActivityOption::new(activity_type.to_owned(), completed)
+        })
+        .collect()
 }
