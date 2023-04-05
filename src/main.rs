@@ -90,7 +90,7 @@ fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
                 KeyCode::Char(c) if c.is_digit(10) => {
                     let index = c.to_digit(10).unwrap() as usize;
                     // Toggle the activity.
-                    if let Some(option) = options.get(index) {
+                    if let Some(option) = options.get(index - 1) {
                         let activity = Activity::new(option.activity_id(), active_date.clone());
                         if option.completed() {
                             // Toggle off.

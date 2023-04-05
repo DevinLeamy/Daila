@@ -163,12 +163,15 @@ pub fn activity_options(
     activities: &ActivitiesStore,
     date: CalendarDate,
 ) -> Vec<ActivityOption> {
-    activity_types
+    let mut options: Vec<ActivityOption> = activity_types
         .activity_types()
         .into_iter()
         .map(|activity_type| {
             let completed = activities.activity_completed(date, activity_type);
             ActivityOption::new(activity_type.to_owned(), completed)
         })
-        .collect()
+        .collect();
+    options.sort_by(|a, b| a.activity_id().0.cmp(&b.activity_id().0));
+
+    options
 }
