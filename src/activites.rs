@@ -95,6 +95,11 @@ impl ActivitiesStore {
         activities.push(activity);
     }
 
+    pub fn remove_activity(&mut self, activity: Activity) {
+        let activities = self.days.get_mut(&activity.date).unwrap();
+        activities.retain(|a| a.activity_id != activity.activity_id);
+    }
+
     pub fn activities_on_date(&mut self, date: CalendarDate) -> &mut Vec<Activity> {
         if !self.days.contains_key(&date) {
             self.days.insert(date, Vec::new()).unwrap();
@@ -146,6 +151,10 @@ impl ActivityOption {
             activity_type,
             completed,
         }
+    }
+
+    pub fn activity_id(&self) -> ActivityId {
+        self.activity_type.id
     }
 }
 
