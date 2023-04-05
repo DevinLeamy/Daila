@@ -121,6 +121,13 @@ impl ActivitiesStore {
     pub fn activities(&self) -> Vec<&Activity> {
         self.days.values().flatten().collect()
     }
+
+    pub fn activities_with_type(&self, activity_type: &ActivityType) -> Vec<&Activity> {
+        self.activities()
+            .into_iter()
+            .filter(|activity| activity.activity_id == activity_type.id)
+            .collect()
+    }
 }
 
 impl File for ActivitiesStore {
