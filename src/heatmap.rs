@@ -251,7 +251,7 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
         }
     }
 
-    fn width(&self) -> u16 {
+    pub fn width(&self) -> u16 {
         let days = self
             .date_range
             .1
@@ -260,7 +260,7 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
         days / self.rows * 2
     }
 
-    fn height(&self) -> u16 {
+    pub fn height(&self) -> u16 {
         self.rows + 2
     }
 }

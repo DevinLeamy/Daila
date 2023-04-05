@@ -13,7 +13,7 @@ use rand::{thread_rng, Rng};
 use std::io;
 use tui::{
     backend::{Backend, CrosstermBackend},
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     Frame, Terminal,
 };
 
@@ -64,15 +64,20 @@ fn run_daila<B: Backend>(terminal: &mut Terminal<B>) -> Result<(), io::Error> {
         let options =
             activites::activity_options(&activity_types, &activities, active_date.clone());
         terminal.draw(|frame| {
-            // draw_daila(frame, activites_clone, activity_types_clone);
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
-                .split(frame.size());
-
+            let frame_size = frame.size();
             let heatmap = HeatMap::default().values(activities.activities());
             let selector = ActivitySelector::<ActivityOption>::default()
                 .values(options.iter().map(|o| o).collect());
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                .split(Rect {
+                    x: frame_size.x,
+                    y: frame_size.y,
+                    width: heatmap.width(),
+                    height: frame_size.height,
+                });
 
             frame.render_widget(selector, chunks[0]);
             frame.render_widget(heatmap, chunks[1]);
