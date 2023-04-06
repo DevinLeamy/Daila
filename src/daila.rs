@@ -51,7 +51,8 @@ impl Daila {
                         .activities_with_type(&self.heatmap_activity_type),
                 );
                 let selector = ActivitySelector::<ActivityOption>::default()
-                    .values(options.iter().map(|o| o).collect());
+                    .values(options.iter().map(|o| o).collect())
+                    .title(self.active_date.format("%A, %-d %B, %C%y").to_string());
 
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)

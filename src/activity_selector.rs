@@ -3,8 +3,8 @@ use std::cmp::min;
 
 use tui::{
     buffer::Buffer,
-    layout::{Constraint, Direction, Layout, Rect},
-    widgets::Widget,
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    widgets::{Block, BorderType, Borders, Widget},
 };
 
 pub trait ActivitySelectorValue {
@@ -24,7 +24,7 @@ impl<'a, T: ActivitySelectorValue> Default for ActivitySelector<'a, T> {
         Self {
             title: String::from("Activity Selector"),
             values: vec![],
-            row_height: 4,
+            row_height: 3,
             values_per_row: 3,
         }
     }
@@ -37,6 +37,11 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
 
     pub fn values(mut self, values: Vec<&'a T>) -> Self {
         self.values = values;
+        self
+    }
+
+    pub fn title(mut self, title: String) -> Self {
+        self.title = title;
         self
     }
 
@@ -55,10 +60,19 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
                 .set_symbol(&display_string);
         }
     }
+
+    fn formatted_title(&self) -> String {
+        format!("{: ^width$}", self.title, width = 30)
+    }
 }
 
 impl<'a, T: ActivitySelectorValue> Widget for ActivitySelector<'a, T> {
     fn render(self, area: Rect, buffer: &mut Buffer) {
+        let border = Block::default()
+            .borders(Borders::ALL)
+            .title(self.formatted_title())
+            .title_alignment(Alignment::Center)
+            .border_type(BorderType::Rounded);
         let row_layout = Layout::default()
             .direction(Direction::Horizontal)
             .margin(1)
@@ -67,25 +81,20 @@ impl<'a, T: ActivitySelectorValue> Widget for ActivitySelector<'a, T> {
                 self.values_per_row as usize
             ]);
 
-        let row_height = 4;
-        let mut row_cells = row_layout.clone().split(Rect {
-            x: area.x,
-            y: area.y,
-            width: area.width,
-            height: row_height,
-        });
+        let mut row_cells: Vec<Rect> = vec![];
         for i in 0..self.values.len() {
             let row = i as u16 / self.values_per_row;
             if i as u16 % self.values_per_row == 0 {
                 row_cells = row_layout.clone().split(Rect {
                     x: area.x,
-                    y: area.y + row_height * row as u16,
+                    y: area.y + self.row_height * row as u16 + 1,
                     width: area.width,
-                    height: row_height,
+                    height: self.row_height,
                 });
             }
             let grid_index = (i as u16 % self.values_per_row) as usize;
             self.render_value(row_cells[grid_index], buffer, i);
         }
+        border.render(area, buffer);
     }
 }

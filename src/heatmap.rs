@@ -170,9 +170,9 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
         let end_year = self.date_range.1.year();
 
         let year_text_str = if start_year == end_year {
-            format!("{}", start_year)
+            format!("Year: {}", start_year)
         } else {
-            format!("{} - {}", start_year, end_year)
+            format!("Years: {} - {}", start_year, end_year)
         };
 
         let year_text = Paragraph::new(Text::raw(&year_text_str));
