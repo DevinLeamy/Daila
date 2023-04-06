@@ -26,7 +26,11 @@ pub struct Daila {
 
 impl Daila {
     pub fn new() -> Self {
-        let activity_types = ActivityTypesStore::load();
+        let mut activity_types = ActivityTypesStore::load();
+        if activity_types.activity_types().len() == 0 {
+            // Create a default activity.
+            activity_types.create_new_activity(String::from("🏞️  Meditate"));
+        }
         let mut first_type = activity_types.activity_types()[0].clone();
         for activity in activity_types.activity_types() {
             if activity.id < first_type.id {

@@ -80,9 +80,13 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
     }
 
     pub fn height(&self) -> u16 {
-        let rows = self.values.len() as u16 / self.values_per_row;
+        let values = self.values.len() as u16;
+        let rows = if values % self.values_per_row != 0 {
+            values / self.values_per_row + 1
+        } else {
+            values / self.values_per_row
+        };
         // +2: Upper and lower border.
-        // +1: Margin from top border to first row.
         rows * self.row_height + 2
     }
 }

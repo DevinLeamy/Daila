@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use directories::ProjectDirs;
 use std::{collections::BTreeMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -79,7 +80,12 @@ impl ActivityTypesStore {
 
 impl File for ActivityTypesStore {
     fn path() -> PathBuf {
-        PathBuf::from("/Users/Devin/Desktop/Github/DevinLeamy/daila-rs/data/activity_types.json")
+        let mut base = ProjectDirs::from("com", "dleamy", "daila")
+            .unwrap()
+            .data_dir()
+            .to_path_buf();
+        base.push("activity_types.json");
+        base
     }
 }
 
@@ -132,7 +138,12 @@ impl ActivitiesStore {
 
 impl File for ActivitiesStore {
     fn path() -> PathBuf {
-        PathBuf::from("/Users/Devin/Desktop/Github/DevinLeamy/daila-rs/data/activities.json")
+        let mut base = ProjectDirs::from("com", "dleamy", "daila")
+            .unwrap()
+            .data_dir()
+            .to_path_buf();
+        base.push("activities.json");
+        base
     }
 }
 
