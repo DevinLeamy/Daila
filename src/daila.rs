@@ -4,6 +4,8 @@ use chrono::NaiveDate;
 use crossterm::event::{self, Event, KeyCode};
 use tui::backend::Backend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
+use tui::text::Text;
+use tui::widgets::{Block, Borders, Paragraph};
 use tui::Terminal;
 
 use crate::activites::{
@@ -35,6 +37,22 @@ impl Daila {
         }
     }
 
+    pub fn instructions_block(&self) -> Paragraph {
+        let instructions = vec![
+            ("<", "previous day"),
+            (">", "next day"),
+            ("%d", "toggle activity"),
+            ("q", "quit"),
+        ];
+        let strings: Vec<String> = instructions
+            .into_iter()
+            .map(|(c, message)| format!("{c}: {message}"))
+            .collect();
+        let string = strings.join("\n");
+
+        Paragraph::new(Text::raw(string.to_owned())).block(Block::default().borders(Borders::ALL))
+    }
+
     pub fn run_daila<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), io::Error> {
         let mut running = true;
 
@@ -56,7 +74,14 @@ impl Daila {
 
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
-                    .constraints([Constraint::Percentage(50), Constraint::Percentage(50)].as_ref())
+                    .constraints(
+                        [
+                            Constraint::Length(selector.height()),
+                            Constraint::Length(heatmap.height()),
+                            Constraint::Length(10),
+                        ]
+                        .as_ref(),
+                    )
                     .split(Rect {
                         x: frame_size.x,
                         y: frame_size.y,
@@ -66,6 +91,7 @@ impl Daila {
 
                 frame.render_widget(selector, chunks[0]);
                 frame.render_widget(heatmap, chunks[1]);
+                frame.render_widget(self.instructions_block(), chunks[2]);
             })?;
             if let Ok(Event::Key(key)) = event::read() {
                 match key.code {
@@ -85,8 +111,6 @@ impl Daila {
                                 // Toggle on.
                                 self.activities.add_activity(activity);
                             }
-                        } else {
-                            println!("Invalid activity index: {}", index);
                         }
                     }
                     // Change the current date.

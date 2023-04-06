@@ -64,6 +64,13 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
     fn formatted_title(&self) -> String {
         format!("{: ^width$}", self.title, width = 30)
     }
+
+    pub fn height(&self) -> u16 {
+        let rows = self.values.len() as u16 / self.values_per_row;
+        // +2: Upper and lower border.
+        // +1: Margin from top border to first row.
+        rows * self.row_height + 2 + 1
+    }
 }
 
 impl<'a, T: ActivitySelectorValue> Widget for ActivitySelector<'a, T> {

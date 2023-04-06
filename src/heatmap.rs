@@ -86,6 +86,8 @@ pub struct HeatMap<'a, T: HeatMapValue> {
     rows: u16,
     // Values to display in the heatmap.
     values: HashMap<CalendarDate, &'a T>,
+    // Flag for year display label.
+    draw_year_label: bool,
 }
 
 impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
@@ -96,6 +98,7 @@ impl<'a, T: HeatMapValue> Default for HeatMap<'a, T> {
             color_range: HeatMapColorRange(Color::Black, Color::Green),
             rows: 7,
             values: HashMap::new(),
+            draw_year_label: false,
         }
     }
 }
@@ -280,7 +283,10 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
             self.draw_date_month_border(date, buffer, &area);
             date = date.checked_add_days(Days::new(1)).unwrap();
         }
+
         self.draw_month_labels(&area, buffer);
-        self.draw_year_labels(&area, buffer);
+        if self.draw_year_label {
+            self.draw_year_labels(&area, buffer);
+        }
     }
 }
