@@ -39,10 +39,11 @@ impl Daila {
 
     pub fn instructions_block(&self) -> Paragraph {
         let instructions = vec![
-            ("<", "previous day"),
-            (">", "next day"),
-            ("n", "display next activity on heatmap"),
-            ("m", "display previous activity on heatmap"),
+            ("j", "previous day"),
+            ("k", "next day"),
+            ("t", "today"),
+            ("n", "display previous activity on heatmap"),
+            ("m", "display next activity on heatmap"),
             ("%d", "toggle activity"),
             ("q", "quit"),
         ];
@@ -117,8 +118,9 @@ impl Daila {
                         }
                     }
                     // Change the current date.
-                    KeyCode::Char('<') => self.active_date = self.active_date.pred_opt().unwrap(),
-                    KeyCode::Char('>') => self.active_date = self.active_date.succ_opt().unwrap(),
+                    KeyCode::Char('j') => self.active_date = self.active_date.pred_opt().unwrap(),
+                    KeyCode::Char('k') => self.active_date = self.active_date.succ_opt().unwrap(),
+                    KeyCode::Char('t') => self.active_date = chrono::Local::now().date_naive(),
                     // Change the activity type displayed in the heatmap.
                     // TODO: This is hacky and I don't like it. Rewrite this to be better.
                     //       (this includes the heatmap_activity_type field!)
@@ -128,7 +130,7 @@ impl Daila {
                             .iter()
                             .position(|t| t.activity_id() == self.heatmap_activity_type.id)
                             .unwrap();
-                        let index = if c == 'n' {
+                        let index = if c == 'm' {
                             (index + 1) % options.len()
                         } else {
                             (index + options.len() - 1) % options.len()
