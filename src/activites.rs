@@ -9,7 +9,7 @@ use crate::{
     heatmap::{CalendarDate, HeatMapValue},
 };
 
-#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone, Copy, PartialOrd)]
 pub struct ActivityId(u32);
 
 #[derive(Serialize, Deserialize, Clone)]
