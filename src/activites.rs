@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +9,7 @@ use crate::{
     heatmap::{CalendarDate, HeatMapValue},
 };
 
-#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone, Copy, PartialOrd)]
+#[derive(Serialize, Deserialize, Hash, PartialEq, Eq, Clone, Copy, PartialOrd, Ord)]
 pub struct ActivityId(u32);
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -48,7 +48,7 @@ impl ActivityType {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ActivityTypesStore {
-    types: HashMap<ActivityId, ActivityType>,
+    types: BTreeMap<ActivityId, ActivityType>,
 }
 
 impl ActivityTypesStore {
@@ -85,7 +85,7 @@ impl File for ActivityTypesStore {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct ActivitiesStore {
-    days: HashMap<CalendarDate, Vec<Activity>>,
+    days: BTreeMap<CalendarDate, Vec<Activity>>,
 }
 
 impl ActivitiesStore {
