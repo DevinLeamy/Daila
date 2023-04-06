@@ -17,6 +17,7 @@ pub struct ActivitySelector<'a, T: ActivitySelectorValue> {
     values: Vec<&'a T>,
     row_height: u16,
     values_per_row: u16,
+    selected: Option<String>,
 }
 
 impl<'a, T: ActivitySelectorValue> Default for ActivitySelector<'a, T> {
@@ -24,8 +25,9 @@ impl<'a, T: ActivitySelectorValue> Default for ActivitySelector<'a, T> {
         Self {
             title: String::from("Activity Selector"),
             values: vec![],
-            row_height: 3,
+            row_height: 5,
             values_per_row: 3,
+            selected: None,
         }
     }
 }
@@ -45,6 +47,11 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
         self
     }
 
+    pub fn selected_value(mut self, name: String) -> Self {
+        self.selected = Some(name);
+        self
+    }
+
     fn render_value(&self, area: Rect, buffer: &mut Buffer, index: usize) {
         let item = self.values[index];
         let name = item.name();
@@ -53,11 +60,18 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
         } else {
             format!("―  {}: {}", index + 1, name)
         };
+        let borders = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded);
 
         for j in 0..min(display_string.len(), area.width as usize) {
             buffer
-                .get_mut(area.x + j as u16, area.y)
+                .get_mut(area.x + j as u16 + 2, area.y + 1)
                 .set_symbol(&display_string);
+        }
+
+        if item.name() == &self.selected.clone().unwrap_or_default() {
+            borders.render(area, buffer);
         }
     }
 
@@ -69,7 +83,7 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
         let rows = self.values.len() as u16 / self.values_per_row;
         // +2: Upper and lower border.
         // +1: Margin from top border to first row.
-        rows * self.row_height + 2 + 1
+        rows * self.row_height + 2
     }
 }
 
@@ -94,7 +108,7 @@ impl<'a, T: ActivitySelectorValue> Widget for ActivitySelector<'a, T> {
             if i as u16 % self.values_per_row == 0 {
                 row_cells = row_layout.clone().split(Rect {
                     x: area.x,
-                    y: area.y + self.row_height * row as u16 + 1,
+                    y: area.y + self.row_height * row as u16,
                     width: area.width,
                     height: self.row_height,
                 });

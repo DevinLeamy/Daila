@@ -41,6 +41,8 @@ impl Daila {
         let instructions = vec![
             ("<", "previous day"),
             (">", "next day"),
+            ("n", "display next activity on heatmap"),
+            ("m", "display previous activity on heatmap"),
             ("%d", "toggle activity"),
             ("q", "quit"),
         ];
@@ -70,7 +72,8 @@ impl Daila {
                 );
                 let selector = ActivitySelector::<ActivityOption>::default()
                     .values(options.iter().map(|o| o).collect())
-                    .title(self.active_date.format("%A, %-d %B, %C%y").to_string());
+                    .title(self.active_date.format("%A, %-d %B, %C%y").to_string())
+                    .selected_value(self.heatmap_activity_type.name.clone());
 
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
@@ -114,24 +117,31 @@ impl Daila {
                         }
                     }
                     // Change the current date.
-                    KeyCode::Char('<') => {
-                        self.active_date = self.active_date.pred_opt().unwrap();
-                    }
-                    KeyCode::Char('>') => {
-                        self.active_date = self.active_date.succ_opt().unwrap();
-                    }
+                    KeyCode::Char('<') => self.active_date = self.active_date.pred_opt().unwrap(),
+                    KeyCode::Char('>') => self.active_date = self.active_date.succ_opt().unwrap(),
                     // Change the activity type displayed in the heatmap.
                     // TODO: This is hacky and I don't like it. Rewrite this to be better.
                     //       (this includes the heatmap_activity_type field!)
-                    KeyCode::Char('n') => {
-                        let activity_types = self.activity_types.activity_types();
-                        let index = activity_types
+                    // Edit: This _was_ hacky. This block as descended below that status. No. Just no. No.
+                    KeyCode::Char(c) if c == 'n' || c == 'm' => {
+                        let index = options
                             .iter()
-                            .position(|t| t.id == self.heatmap_activity_type.id)
+                            .position(|t| t.activity_id() == self.heatmap_activity_type.id)
                             .unwrap();
-                        let index = (index + 1) % activity_types.len();
-                        self.heatmap_activity_type = activity_types[index].clone();
+                        let index = if c == 'n' {
+                            (index + 1) % options.len()
+                        } else {
+                            (index + options.len() - 1) % options.len()
+                        };
+                        self.heatmap_activity_type = self
+                            .activity_types
+                            .activity_types()
+                            .into_iter()
+                            .find(|t| t.id == options[index].activity_id())
+                            .unwrap()
+                            .clone()
                     }
+                    // ---safety barrier---
                     _ => {}
                 }
                 if let KeyCode::Char('q') = key.code {
