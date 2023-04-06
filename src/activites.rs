@@ -79,7 +79,7 @@ impl ActivityTypesStore {
 
 impl File for ActivityTypesStore {
     fn path() -> PathBuf {
-        PathBuf::from("/Users/Devin/Desktop/Playground/Fall2022/daila-rs/data/activity_types.json")
+        PathBuf::from("/Users/Devin/Desktop/Github/DevinLeamy/daila-rs/data/activity_types.json")
     }
 }
 
@@ -132,7 +132,7 @@ impl ActivitiesStore {
 
 impl File for ActivitiesStore {
     fn path() -> PathBuf {
-        PathBuf::from("/Users/Devin/Desktop/Playground/Fall2022/daila-rs/data/activities.json")
+        PathBuf::from("/Users/Devin/Desktop/Github/DevinLeamy/daila-rs/data/activities.json")
     }
 }
 
