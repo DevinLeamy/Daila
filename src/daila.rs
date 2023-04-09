@@ -16,6 +16,74 @@ use crate::activity_selector::{ActivitySelector, ActivitySelectorValue};
 use crate::file::File;
 use crate::heatmap::HeatMap;
 
+use DailaEvent::*;
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+enum DailaEvent {
+    GotoPreviousDay,
+    GotoNextDay,
+    GotoToday,
+    NextHeatmapActivity,
+    PreviousHeatmapActivity,
+    ToggleActivity(u32),
+    SaveAndQuit,
+    QuitWithoutSaving,
+}
+
+impl DailaEvent {
+    fn from_event(event: Event) -> Option<Self> {
+        match event {
+            Event::Key(key_event) => match key_event.code {
+                KeyCode::Char('k') => Some(GotoNextDay),
+                KeyCode::Char('j') => Some(GotoPreviousDay),
+                KeyCode::Char('t') => Some(GotoToday),
+                KeyCode::Char('m') => Some(NextHeatmapActivity),
+                KeyCode::Char('n') => Some(PreviousHeatmapActivity),
+                KeyCode::Char('s') => Some(SaveAndQuit),
+                KeyCode::Char('q') => Some(QuitWithoutSaving),
+                KeyCode::Char(c) => {
+                    if c.is_digit(10) {
+                        Some(ToggleActivity(c.to_digit(10).unwrap() as u32))
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+    fn to_instruction(&self) -> String {
+        let instruction = match &self {
+            Self::GotoNextDay => "k",
+            Self::GotoPreviousDay => "j",
+            Self::GotoToday => "t",
+            Self::NextHeatmapActivity => "m",
+            Self::PreviousHeatmapActivity => "n",
+            Self::ToggleActivity(_) => "%d",
+            Self::SaveAndQuit => "s",
+            Self::QuitWithoutSaving => "q",
+        };
+
+        String::from(instruction)
+    }
+
+    fn to_description(&self) -> String {
+        let description = match &self {
+            Self::GotoNextDay => "next day",
+            Self::GotoPreviousDay => "previous day",
+            Self::GotoToday => "today",
+            Self::NextHeatmapActivity => "next heatmap activity",
+            Self::PreviousHeatmapActivity => "previous heatmap activity",
+            Self::ToggleActivity(_) => "toggle activity",
+            Self::SaveAndQuit => "save and quit",
+            Self::QuitWithoutSaving => "quit without saving",
+        };
+
+        String::from(description)
+    }
+}
+
 pub struct Daila {
     activity_types: ActivityTypesStore,
     activities: ActivitiesStore,
@@ -49,23 +117,29 @@ impl Daila {
 
     pub fn instructions_block(&self) -> Paragraph {
         let instructions = vec![
-            ("j", "previous day"),
-            ("k", "next day"),
-            ("t", "today"),
-            ("n", "display previous activity on heatmap"),
-            ("m", "display next activity on heatmap"),
-            ("p", "open activity editor"),
-            ("%d", "toggle activity"),
-            ("s", "save and quit"),
-            ("q", "quit without saving"),
+            DailaEvent::GotoPreviousDay,
+            DailaEvent::GotoNextDay,
+            DailaEvent::GotoToday,
+            DailaEvent::NextHeatmapActivity,
+            DailaEvent::PreviousHeatmapActivity,
+            DailaEvent::ToggleActivity(0),
+            DailaEvent::SaveAndQuit,
+            DailaEvent::QuitWithoutSaving,
         ];
         let strings: Vec<String> = instructions
             .into_iter()
-            .map(|(c, message)| format!("{c}: {message}"))
+            .map(|event| format!("{}: {}", event.to_instruction(), event.to_description()))
             .collect();
         let string = strings.join("\n");
 
         Paragraph::new(Text::raw(string.to_owned())).block(Block::default().borders(Borders::ALL))
+    }
+
+    fn parse_input_event(&self, event: Result<Event, io::Error>) -> Option<DailaEvent> {
+        match event {
+            Ok(event) => DailaEvent::from_event(event),
+            Err(_) => None,
+        }
     }
 
     pub fn run_daila<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), io::Error> {
@@ -144,63 +218,53 @@ impl Daila {
                     frame.render_widget(ActivityPopup::default(), popup_area);
                 }
             })?;
-            if let Ok(Event::Key(key)) = event::read() {
-                match key.code {
-                    // Handle quit without saving.
-                    KeyCode::Char('q') => running = false,
-                    // Handle save and quit.
-                    KeyCode::Char('s') => {
-                        running = false;
-                        // Save any unsaved changes.
-                        self.activity_types.save();
-                        self.activities.save();
-                    }
-                    // Handle activity selection.
-                    KeyCode::Char(c) if c.is_digit(10) => {
-                        let index = c.to_digit(10).unwrap() as usize;
-                        // Toggle the activity.
-                        if let Some(option) = options.get(index - 1) {
-                            let activity =
-                                Activity::new(option.activity_id(), self.active_date.clone());
-                            if option.completed() {
-                                // Toggle off.
-                                self.activities.remove_activity(activity);
-                            } else {
-                                // Toggle on.
-                                self.activities.add_activity(activity);
-                            }
+            let event = self.parse_input_event(event::read());
+            if event.is_none() {
+                continue;
+            }
+            match event.unwrap() {
+                QuitWithoutSaving => running = false,
+                SaveAndQuit => {
+                    running = false;
+                    // Save any unsaved changes.
+                    self.activity_types.save();
+                    self.activities.save();
+                }
+                DailaEvent::ToggleActivity(index) => {
+                    // Toggle the activity.
+                    if let Some(option) = options.get((index - 1) as usize) {
+                        let activity =
+                            Activity::new(option.activity_id(), self.active_date.clone());
+                        if option.completed() {
+                            // Toggle off.
+                            self.activities.remove_activity(activity);
+                        } else {
+                            // Toggle on.
+                            self.activities.add_activity(activity);
                         }
                     }
-                    // Toggle popup.
-                    KeyCode::Char('p') => show_activity_pop = !show_activity_pop,
-                    // Change the current date.
-                    KeyCode::Char('j') => self.active_date = self.active_date.pred_opt().unwrap(),
-                    KeyCode::Char('k') => self.active_date = self.active_date.succ_opt().unwrap(),
-                    KeyCode::Char('t') => self.active_date = chrono::Local::now().date_naive(),
-                    // Change the activity type displayed in the heatmap.
-                    // TODO: This is hacky and I don't like it. Rewrite this to be better.
-                    //       (this includes the heatmap_activity_type field!)
-                    // Edit: This _was_ hacky. This block as descended below that status. No. Just no. No.
-                    KeyCode::Char(c) if c == 'n' || c == 'm' => {
-                        let index = options
-                            .iter()
-                            .position(|t| t.activity_id() == self.heatmap_activity_type.id)
-                            .unwrap();
-                        let index = if c == 'm' {
-                            (index + 1) % options.len()
-                        } else {
-                            (index + options.len() - 1) % options.len()
-                        };
-                        self.heatmap_activity_type = self
-                            .activity_types
-                            .activity_types()
-                            .into_iter()
-                            .find(|t| t.id == options[index].activity_id())
-                            .unwrap()
-                            .clone()
-                    }
-                    // ---safety barrier---
-                    _ => {}
+                }
+                // KeyCode::Char('p') => show_activity_pop = !show_activity_pop,
+                GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
+                GotoNextDay => self.active_date = self.active_date.succ_opt().unwrap(),
+                GotoToday => self.active_date = chrono::Local::now().date_naive(),
+                DailaEvent::NextHeatmapActivity | DailaEvent::PreviousHeatmapActivity => {
+                    let index = options
+                        .iter()
+                        .position(|t| t.activity_id() == self.heatmap_activity_type.id)
+                        .unwrap();
+                    let index = if matches!(event, Some(DailaEvent::NextHeatmapActivity)) {
+                        (index + 1) % options.len()
+                    } else {
+                        (index + options.len() - 1) % options.len()
+                    };
+                    self.heatmap_activity_type = self
+                        .activity_types
+                        .activity_types()
+                        .into_iter()
+                        .find(|t| t.id == options[index].activity_id())
+                        .unwrap()
+                        .clone()
                 }
             }
         }
