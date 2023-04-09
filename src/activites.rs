@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#[cfg(not(debug_assertions))]
 use directories::ProjectDirs;
 use std::{collections::BTreeMap, path::PathBuf};
 
@@ -79,6 +80,7 @@ impl ActivityTypesStore {
 }
 
 impl File for ActivityTypesStore {
+    #[cfg(not(debug_assertions))]
     fn path() -> PathBuf {
         let mut base = ProjectDirs::from("com", "dleamy", "daila")
             .unwrap()
@@ -86,6 +88,12 @@ impl File for ActivityTypesStore {
             .to_path_buf();
         base.push("activity_types.json");
         base
+    }
+    #[cfg(debug_assertions)]
+    fn path() -> PathBuf {
+        let mut crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        crate_root.push("data/activity_types.json");
+        crate_root
     }
 }
 
@@ -137,6 +145,7 @@ impl ActivitiesStore {
 }
 
 impl File for ActivitiesStore {
+    #[cfg(not(debug_assertions))]
     fn path() -> PathBuf {
         let mut base = ProjectDirs::from("com", "dleamy", "daila")
             .unwrap()
@@ -144,6 +153,12 @@ impl File for ActivitiesStore {
             .to_path_buf();
         base.push("activities.json");
         base
+    }
+    #[cfg(debug_assertions)]
+    fn path() -> PathBuf {
+        let mut crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        crate_root.push("data/activities.json");
+        crate_root
     }
 }
 

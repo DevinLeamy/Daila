@@ -4,6 +4,8 @@ use std::cmp::min;
 use tui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
+    style::{Color, Style},
+    text::Span,
     widgets::{Block, BorderType, Borders, Widget},
 };
 
@@ -55,10 +57,10 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
     fn render_value(&self, area: Rect, buffer: &mut Buffer, index: usize) {
         let item = self.values[index];
         let name = item.name();
-        let display_string = if item.completed() {
-            format!("✅ {}: {}", index + 1, name)
+        let (display_string, color) = if item.completed() {
+            (format!("✅ {}: {}", index + 1, name), Color::Green)
         } else {
-            format!("―  {}: {}", index + 1, name)
+            (format!("―  {}: {}", index + 1, name), Color::White)
         };
         let borders = Block::default()
             .borders(Borders::ALL)
@@ -67,6 +69,7 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
         for j in 0..min(display_string.len(), area.width as usize) {
             buffer
                 .get_mut(area.x + j as u16 + 2, area.y + 1)
+                .set_fg(color)
                 .set_symbol(&display_string);
         }
 
@@ -93,9 +96,12 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
 
 impl<'a, T: ActivitySelectorValue> Widget for ActivitySelector<'a, T> {
     fn render(self, area: Rect, buffer: &mut Buffer) {
+        let title_style = Style::default().fg(Color::Yellow);
+        let title = Span::styled(self.formatted_title(), title_style);
+
         let border = Block::default()
             .borders(Borders::ALL)
-            .title(self.formatted_title())
+            .title(title)
             .title_alignment(Alignment::Center)
             .border_type(BorderType::Rounded);
         let row_layout = Layout::default()

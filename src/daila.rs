@@ -54,7 +54,8 @@ impl Daila {
             ("n", "display previous activity on heatmap"),
             ("m", "display next activity on heatmap"),
             ("%d", "toggle activity"),
-            ("q", "quit"),
+            ("s", "save and quit"),
+            ("q", "quit without saving"),
         ];
         let strings: Vec<String> = instructions
             .into_iter()
@@ -108,8 +109,15 @@ impl Daila {
             })?;
             if let Ok(Event::Key(key)) = event::read() {
                 match key.code {
-                    // Handle quit.
+                    // Handle quit without saving.
                     KeyCode::Char('q') => running = false,
+                    // Handle save and quit.
+                    KeyCode::Char('s') => {
+                        running = false;
+                        // Save any unsaved changes.
+                        self.activity_types.save();
+                        self.activities.save();
+                    }
                     // Handle activity selection.
                     KeyCode::Char(c) if c.is_digit(10) => {
                         let index = c.to_digit(10).unwrap() as usize;
@@ -155,15 +163,8 @@ impl Daila {
                     // ---safety barrier---
                     _ => {}
                 }
-                if let KeyCode::Char('q') = key.code {
-                    running = false;
-                }
             }
         }
-
-        // Save any unsaved changes.
-        self.activity_types.save();
-        self.activities.save();
 
         Ok(())
     }
