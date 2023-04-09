@@ -6,9 +6,10 @@ use crossterm::{
 use daila::Daila;
 use std::io;
 
-use tui::{backend::CrosstermBackend, Terminal};
+use ratatui::{backend::CrosstermBackend, Terminal};
 
 mod activites;
+mod activity_popup;
 mod activity_selector;
 mod daila;
 mod file;

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::cmp::min;
 
-use tui::{
+use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
@@ -116,12 +116,15 @@ impl<'a, T: ActivitySelectorValue> Widget for ActivitySelector<'a, T> {
         for i in 0..self.values.len() {
             let row = i as u16 / self.values_per_row;
             if i as u16 % self.values_per_row == 0 {
-                row_cells = row_layout.clone().split(Rect {
-                    x: area.x,
-                    y: area.y + self.row_height * row as u16,
-                    width: area.width,
-                    height: self.row_height,
-                });
+                row_cells = row_layout
+                    .clone()
+                    .split(Rect {
+                        x: area.x,
+                        y: area.y + self.row_height * row as u16,
+                        width: area.width,
+                        height: self.row_height,
+                    })
+                    .to_vec();
             }
             let grid_index = (i as u16 % self.values_per_row) as usize;
             self.render_value(row_cells[grid_index], buffer, i);

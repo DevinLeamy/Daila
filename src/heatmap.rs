@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 
 use chrono::{Datelike, Days, NaiveDate};
-use tui::{
+use ratatui::{
     buffer::Buffer,
     layout::Rect,
     style::Color,
