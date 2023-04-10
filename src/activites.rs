@@ -61,6 +61,10 @@ impl ActivityTypesStore {
         id
     }
 
+    pub fn len(&self) -> usize {
+        self.types.len()
+    }
+
     fn next_unused_id(&self) -> ActivityId {
         let mut id = 0;
         while self.types.contains_key(&ActivityId(id)) {

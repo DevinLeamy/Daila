@@ -8,11 +8,9 @@ use ratatui::text::Text;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Terminal;
 
-use crate::activites::{
-    self, ActivitiesStore, Activity, ActivityOption, ActivityType, ActivityTypesStore,
-};
+use crate::activites::{self, ActivitiesStore, Activity, ActivityOption, ActivityTypesStore};
 use crate::activity_popup::ActivityPopup;
-use crate::activity_selector::{ActivitySelector, ActivitySelectorValue};
+use crate::activity_selector::{ActivitySelector, ActivitySelectorState, ActivitySelectorValue};
 use crate::file::File;
 use crate::heatmap::HeatMap;
 
@@ -28,6 +26,7 @@ enum DailaEvent {
     ToggleActivity(u32),
     SaveAndQuit,
     QuitWithoutSaving,
+    OpenActivityPopup,
 }
 
 impl DailaEvent {
@@ -41,6 +40,7 @@ impl DailaEvent {
                 KeyCode::Char('n') => Some(PreviousHeatmapActivity),
                 KeyCode::Char('s') => Some(SaveAndQuit),
                 KeyCode::Char('q') => Some(QuitWithoutSaving),
+                KeyCode::Char('p') => Some(OpenActivityPopup),
                 KeyCode::Char(c) => {
                     if c.is_digit(10) {
                         Some(ToggleActivity(c.to_digit(10).unwrap() as u32))
@@ -55,14 +55,15 @@ impl DailaEvent {
     }
     fn to_instruction(&self) -> String {
         let instruction = match &self {
-            Self::GotoNextDay => "k",
-            Self::GotoPreviousDay => "j",
-            Self::GotoToday => "t",
-            Self::NextHeatmapActivity => "m",
-            Self::PreviousHeatmapActivity => "n",
-            Self::ToggleActivity(_) => "%d",
-            Self::SaveAndQuit => "s",
-            Self::QuitWithoutSaving => "q",
+            GotoNextDay => "k",
+            GotoPreviousDay => "j",
+            GotoToday => "t",
+            NextHeatmapActivity => "m",
+            PreviousHeatmapActivity => "n",
+            ToggleActivity(_) => "%d",
+            SaveAndQuit => "s",
+            QuitWithoutSaving => "q",
+            OpenActivityPopup => "p",
         };
 
         String::from(instruction)
@@ -70,14 +71,15 @@ impl DailaEvent {
 
     fn to_description(&self) -> String {
         let description = match &self {
-            Self::GotoNextDay => "next day",
-            Self::GotoPreviousDay => "previous day",
-            Self::GotoToday => "today",
-            Self::NextHeatmapActivity => "next heatmap activity",
-            Self::PreviousHeatmapActivity => "previous heatmap activity",
-            Self::ToggleActivity(_) => "toggle activity",
-            Self::SaveAndQuit => "save and quit",
-            Self::QuitWithoutSaving => "quit without saving",
+            GotoNextDay => "next day",
+            GotoPreviousDay => "previous day",
+            GotoToday => "today",
+            NextHeatmapActivity => "next heatmap activity",
+            PreviousHeatmapActivity => "previous heatmap activity",
+            ToggleActivity(_) => "toggle activity",
+            SaveAndQuit => "save and quit",
+            QuitWithoutSaving => "quit without saving",
+            OpenActivityPopup => "add new activity type",
         };
 
         String::from(description)
@@ -89,29 +91,24 @@ pub struct Daila {
     activities: ActivitiesStore,
     // Date displayed in the activity selector.
     active_date: NaiveDate,
-    // Activity type displayed in the heatmap.
-    heatmap_activity_type: ActivityType,
+    activity_selector_state: ActivitySelectorState,
 }
 
 impl Daila {
     pub fn new() -> Self {
         let mut activity_types = ActivityTypesStore::load();
-        if activity_types.activity_types().len() == 0 {
+        let activity_tyes_len = activity_types.len();
+
+        if activity_tyes_len == 0 {
             // Create a default activity.
             activity_types.create_new_activity(String::from("🏞️  Meditate"));
-        }
-        let mut first_type = activity_types.activity_types()[0].clone();
-        for activity in activity_types.activity_types() {
-            if activity.id < first_type.id {
-                first_type = activity.clone()
-            }
         }
 
         Self {
             activity_types: activity_types,
             activities: ActivitiesStore::load(),
             active_date: chrono::Local::now().date_naive(),
-            heatmap_activity_type: first_type,
+            activity_selector_state: ActivitySelectorState::new(activity_tyes_len),
         }
     }
 
@@ -123,6 +120,7 @@ impl Daila {
             DailaEvent::NextHeatmapActivity,
             DailaEvent::PreviousHeatmapActivity,
             DailaEvent::ToggleActivity(0),
+            DailaEvent::OpenActivityPopup,
             DailaEvent::SaveAndQuit,
             DailaEvent::QuitWithoutSaving,
         ];
@@ -154,14 +152,14 @@ impl Daila {
             );
             terminal.draw(|frame| {
                 let frame_size = frame.size();
-                let heatmap = HeatMap::default().values(
-                    self.activities
-                        .activities_with_type(&self.heatmap_activity_type),
-                );
+                let activity_types = self.activity_types.activity_types();
+                let selected_activity =
+                    activity_types[self.activity_selector_state.selected_index().unwrap()];
+                let heatmap = HeatMap::default()
+                    .values(self.activities.activities_with_type(&selected_activity));
                 let selector = ActivitySelector::<ActivityOption>::default()
                     .values(options.iter().map(|o| o).collect())
-                    .title(self.active_date.format("%A, %-d %B, %C%y").to_string())
-                    .selected_value(self.heatmap_activity_type.name.clone());
+                    .title(self.active_date.format("%A, %-d %B, %C%y").to_string());
 
                 let display_size = Rect {
                     x: frame_size.x,
@@ -181,7 +179,11 @@ impl Daila {
                     )
                     .split(display_size.clone());
 
-                frame.render_widget(selector, chunks[0]);
+                frame.render_stateful_widget(
+                    selector,
+                    chunks[0],
+                    &mut self.activity_selector_state,
+                );
                 frame.render_widget(heatmap, chunks[1]);
                 frame.render_widget(self.instructions_block(), chunks[2]);
 
@@ -244,28 +246,12 @@ impl Daila {
                         }
                     }
                 }
-                // KeyCode::Char('p') => show_activity_pop = !show_activity_pop,
+                OpenActivityPopup => show_activity_pop = !show_activity_pop,
                 GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
                 GotoNextDay => self.active_date = self.active_date.succ_opt().unwrap(),
                 GotoToday => self.active_date = chrono::Local::now().date_naive(),
-                DailaEvent::NextHeatmapActivity | DailaEvent::PreviousHeatmapActivity => {
-                    let index = options
-                        .iter()
-                        .position(|t| t.activity_id() == self.heatmap_activity_type.id)
-                        .unwrap();
-                    let index = if matches!(event, Some(DailaEvent::NextHeatmapActivity)) {
-                        (index + 1) % options.len()
-                    } else {
-                        (index + options.len() - 1) % options.len()
-                    };
-                    self.heatmap_activity_type = self
-                        .activity_types
-                        .activity_types()
-                        .into_iter()
-                        .find(|t| t.id == options[index].activity_id())
-                        .unwrap()
-                        .clone()
-                }
+                NextHeatmapActivity => self.activity_selector_state.select_next(),
+                PreviousHeatmapActivity => self.activity_selector_state.select_previous(),
             }
         }
 

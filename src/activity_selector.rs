@@ -6,8 +6,42 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::Span,
-    widgets::{Block, BorderType, Borders, Widget},
+    widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
 };
+
+#[derive(Clone)]
+pub struct ActivitySelectorState {
+    activity_count: usize,
+    selected_index: Option<usize>,
+}
+
+impl ActivitySelectorState {
+    pub fn new(activity_count: usize) -> Self {
+        return Self {
+            activity_count,
+            selected_index: if activity_count == 0 { None } else { Some(0) },
+        };
+    }
+    pub fn select_next(&mut self) {
+        if let Some(index) = self.selected_index {
+            self.selected_index = Some((index + 1) % self.activity_count);
+        }
+    }
+
+    pub fn select_previous(&mut self) {
+        if let Some(index) = self.selected_index {
+            self.selected_index = Some((index + self.activity_count - 1) % self.activity_count);
+        }
+    }
+
+    pub fn selected(&self, index: usize) -> bool {
+        self.selected_index == Some(index)
+    }
+
+    pub fn selected_index(&self) -> Option<usize> {
+        self.selected_index
+    }
+}
 
 pub trait ActivitySelectorValue {
     fn name(&self) -> &str;
@@ -19,7 +53,6 @@ pub struct ActivitySelector<'a, T: ActivitySelectorValue> {
     values: Vec<&'a T>,
     row_height: u16,
     values_per_row: u16,
-    selected: Option<String>,
 }
 
 impl<'a, T: ActivitySelectorValue> Default for ActivitySelector<'a, T> {
@@ -29,7 +62,6 @@ impl<'a, T: ActivitySelectorValue> Default for ActivitySelector<'a, T> {
             values: vec![],
             row_height: 5,
             values_per_row: 3,
-            selected: None,
         }
     }
 }
@@ -49,12 +81,7 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
         self
     }
 
-    pub fn selected_value(mut self, name: String) -> Self {
-        self.selected = Some(name);
-        self
-    }
-
-    fn render_value(&self, area: Rect, buffer: &mut Buffer, index: usize) {
+    fn render_value(&self, area: Rect, buffer: &mut Buffer, index: usize, selected: bool) {
         let item = self.values[index];
         let name = item.name();
         let (display_string, color) = if item.completed() {
@@ -62,10 +89,6 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
         } else {
             (format!("―  {}: {}", index + 1, name), Color::White)
         };
-        let borders = Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded);
-
         for j in 0..min(display_string.len(), area.width as usize) {
             buffer
                 .get_mut(area.x + j as u16 + 2, area.y + 1)
@@ -73,8 +96,12 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
                 .set_symbol(&display_string);
         }
 
-        if item.name() == &self.selected.clone().unwrap_or_default() {
-            borders.render(area, buffer);
+        if selected {
+            // Draw borders around the selected item.
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .render(area, buffer);
         }
     }
 
@@ -94,8 +121,10 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
     }
 }
 
-impl<'a, T: ActivitySelectorValue> Widget for ActivitySelector<'a, T> {
-    fn render(self, area: Rect, buffer: &mut Buffer) {
+impl<'a, T: ActivitySelectorValue> StatefulWidget for ActivitySelector<'a, T> {
+    type State = ActivitySelectorState;
+
+    fn render(self, area: Rect, buffer: &mut Buffer, state: &mut Self::State) {
         let title_style = Style::default().fg(Color::Yellow);
         let title = Span::styled(self.formatted_title(), title_style);
 
@@ -127,7 +156,7 @@ impl<'a, T: ActivitySelectorValue> Widget for ActivitySelector<'a, T> {
                     .to_vec();
             }
             let grid_index = (i as u16 % self.values_per_row) as usize;
-            self.render_value(row_cells[grid_index], buffer, i);
+            self.render_value(row_cells[grid_index], buffer, i, state.selected(i));
         }
         border.render(area, buffer);
     }
