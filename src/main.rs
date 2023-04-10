@@ -11,9 +11,11 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 mod activites;
 mod activity_popup;
 mod activity_selector;
+mod confirmation_popup;
 mod daila;
 mod file;
 mod heatmap;
+mod popup;
 
 fn main() -> Result<(), io::Error> {
     // Setup.

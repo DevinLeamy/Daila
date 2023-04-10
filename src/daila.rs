@@ -9,10 +9,13 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Terminal;
 
 use crate::activites::{self, ActivitiesStore, Activity, ActivityOption, ActivityTypesStore};
-use crate::activity_popup::ActivityPopup;
 use crate::activity_selector::{ActivitySelector, ActivitySelectorState, ActivitySelectorValue};
+use crate::confirmation_popup::{
+    ConfirmationPopup, ConfirmationPopupAction, ConfirmationPopupState,
+};
 use crate::file::File;
 use crate::heatmap::HeatMap;
+use crate::popup::Popup;
 
 use DailaEvent::*;
 
@@ -30,7 +33,7 @@ enum DailaEvent {
 }
 
 impl DailaEvent {
-    fn from_event(event: Event) -> Option<Self> {
+    fn from_event(event: &Event) -> Option<Self> {
         match event {
             Event::Key(key_event) => match key_event.code {
                 KeyCode::Char('k') => Some(GotoNextDay),
@@ -86,12 +89,20 @@ impl DailaEvent {
     }
 }
 
+pub enum DailaState {
+    Default,
+    ActivityPopup,
+    ConfirmationPopup,
+}
+
 pub struct Daila {
     activity_types: ActivityTypesStore,
     activities: ActivitiesStore,
     // Date displayed in the activity selector.
     active_date: NaiveDate,
     activity_selector_state: ActivitySelectorState,
+    running: bool,
+    state: DailaState,
 }
 
 impl Daila {
@@ -109,6 +120,8 @@ impl Daila {
             activities: ActivitiesStore::load(),
             active_date: chrono::Local::now().date_naive(),
             activity_selector_state: ActivitySelectorState::new(activity_tyes_len),
+            running: false,
+            state: DailaState::Default,
         }
     }
 
@@ -133,32 +146,90 @@ impl Daila {
         Paragraph::new(Text::raw(string.to_owned())).block(Block::default().borders(Borders::ALL))
     }
 
-    fn parse_input_event(&self, event: Result<Event, io::Error>) -> Option<DailaEvent> {
+    fn parse_input_event(&self, event: &Result<Event, io::Error>) -> Option<DailaEvent> {
         match event {
             Ok(event) => DailaEvent::from_event(event),
             Err(_) => None,
         }
     }
 
-    pub fn run_daila<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), io::Error> {
-        let mut running = true;
-        let mut show_activity_pop = false;
+    fn handle_event(&mut self, event: Result<Event, io::Error>) {
+        match self.state {
+            DailaState::Default => {
+                let daila_event = self.parse_input_event(&event);
+                if daila_event.is_none() {
+                    return;
+                }
+                match daila_event.unwrap() {
+                    QuitWithoutSaving => self.running = false,
+                    SaveAndQuit => {
+                        self.running = false;
+                        // Save any unsaved changes.
+                        self.activity_types.save();
+                        self.activities.save();
+                    }
+                    DailaEvent::ToggleActivity(index) => {
+                        // Toggle the activity.
+                        if let Some(option) =
+                            self.activity_selector_options().get((index - 1) as usize)
+                        {
+                            let activity =
+                                Activity::new(option.activity_id(), self.active_date.clone());
+                            if option.completed() {
+                                self.activities.remove_activity(activity);
+                            } else {
+                                self.activities.add_activity(activity);
+                            }
+                        }
+                    }
+                    OpenActivityPopup => self.state = DailaState::ConfirmationPopup,
+                    GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
+                    GotoNextDay => self.active_date = self.active_date.succ_opt().unwrap(),
+                    GotoToday => self.active_date = chrono::Local::now().date_naive(),
+                    NextHeatmapActivity => self.activity_selector_state.select_next(),
+                    PreviousHeatmapActivity => self.activity_selector_state.select_previous(),
+                }
+            }
+            DailaState::ActivityPopup => {}
+            DailaState::ConfirmationPopup => {
+                if event.is_err() {
+                    return;
+                }
+                let action = ConfirmationPopup::action_from_event(&event.unwrap());
+                match action {
+                    Some(ConfirmationPopupAction::Accept) => self.state = DailaState::Default,
+                    Some(ConfirmationPopupAction::Decline) => self.state = DailaState::Default,
+                    None => {}
+                }
+            }
+        };
+    }
 
-        while running {
-            let options = activites::activity_options(
-                &self.activity_types,
-                &self.activities,
-                self.active_date.clone(),
-            );
+    fn activity_selector_options(&self) -> Vec<ActivityOption> {
+        activites::activity_options(
+            &self.activity_types,
+            &self.activities,
+            self.active_date.clone(),
+        )
+    }
+
+    fn heatmap_values(&self) -> Vec<&Activity> {
+        let activity_types = self.activity_types.activity_types();
+        let selected_activity =
+            activity_types[self.activity_selector_state.selected_index().unwrap()];
+        self.activities.activities_with_type(&selected_activity)
+    }
+
+    pub fn run_daila<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), io::Error> {
+        self.running = true;
+        while self.running {
             terminal.draw(|frame| {
+                let heatmap_values = self.heatmap_values();
+                let heatmap = HeatMap::default().values(heatmap_values);
+                let selector_options = self.activity_selector_options();
                 let frame_size = frame.size();
-                let activity_types = self.activity_types.activity_types();
-                let selected_activity =
-                    activity_types[self.activity_selector_state.selected_index().unwrap()];
-                let heatmap = HeatMap::default()
-                    .values(self.activities.activities_with_type(&selected_activity));
                 let selector = ActivitySelector::<ActivityOption>::default()
-                    .values(options.iter().map(|o| o).collect())
+                    .values(selector_options.iter().map(|o| o).collect())
                     .title(self.active_date.format("%A, %-d %B, %C%y").to_string());
 
                 let display_size = Rect {
@@ -179,15 +250,15 @@ impl Daila {
                     )
                     .split(display_size.clone());
 
+                frame.render_widget(heatmap, chunks[1]);
+                frame.render_widget(self.instructions_block(), chunks[2]);
                 frame.render_stateful_widget(
                     selector,
                     chunks[0],
                     &mut self.activity_selector_state,
                 );
-                frame.render_widget(heatmap, chunks[1]);
-                frame.render_widget(self.instructions_block(), chunks[2]);
 
-                if show_activity_pop {
+                if matches!(self.state, DailaState::ConfirmationPopup) {
                     let height_percentage = 50;
                     let width_percentage = 70;
 
@@ -217,42 +288,14 @@ impl Daila {
                         .split(popup_area[1])[1];
 
                     frame.render_widget(Clear, popup_area);
-                    frame.render_widget(ActivityPopup::default(), popup_area);
+                    frame.render_stateful_widget(
+                        ConfirmationPopup::default(),
+                        popup_area,
+                        &mut ConfirmationPopupState::default(),
+                    );
                 }
             })?;
-            let event = self.parse_input_event(event::read());
-            if event.is_none() {
-                continue;
-            }
-            match event.unwrap() {
-                QuitWithoutSaving => running = false,
-                SaveAndQuit => {
-                    running = false;
-                    // Save any unsaved changes.
-                    self.activity_types.save();
-                    self.activities.save();
-                }
-                DailaEvent::ToggleActivity(index) => {
-                    // Toggle the activity.
-                    if let Some(option) = options.get((index - 1) as usize) {
-                        let activity =
-                            Activity::new(option.activity_id(), self.active_date.clone());
-                        if option.completed() {
-                            // Toggle off.
-                            self.activities.remove_activity(activity);
-                        } else {
-                            // Toggle on.
-                            self.activities.add_activity(activity);
-                        }
-                    }
-                }
-                OpenActivityPopup => show_activity_pop = !show_activity_pop,
-                GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
-                GotoNextDay => self.active_date = self.active_date.succ_opt().unwrap(),
-                GotoToday => self.active_date = chrono::Local::now().date_naive(),
-                NextHeatmapActivity => self.activity_selector_state.select_next(),
-                PreviousHeatmapActivity => self.activity_selector_state.select_previous(),
-            }
+            self.handle_event(event::read());
         }
 
         Ok(())
