@@ -273,7 +273,6 @@ impl<'a, T: HeatMapValue> Widget for HeatMap<'a, T> {
      * Draw the heatmap.
      */
     fn render(self, area: Rect, buffer: &mut Buffer) {
-        // // Assert that there is enough space to draw the heatmap.
         assert!(area.width >= self.width());
         assert!(area.height >= self.height());
 

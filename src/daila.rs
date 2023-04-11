@@ -3,9 +3,10 @@ use std::io;
 use chrono::NaiveDate;
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::backend::Backend;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Style};
 use ratatui::text::Text;
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget};
 use ratatui::Terminal;
 
 use crate::activites::{self, ActivitiesStore, Activity, ActivityOption, ActivityTypesStore};
@@ -272,6 +273,21 @@ impl Daila {
                     width: heatmap.width(),
                     height: frame_size.height,
                 };
+
+                let required_height = selector.height() + heatmap.height();
+                let required_width = heatmap.width();
+                if required_height > frame_size.height || required_width > frame_size.width {
+                    // Display notice to make the terminal bigger.
+                    let notice_block = Block::default()
+                        .title("  Make the terminal larger  ")
+                        .title_alignment(Alignment::Center)
+                        .style(Style::default().fg(Color::Red))
+                        .border_type(BorderType::Rounded)
+                        .borders(Borders::ALL);
+                    frame.render_widget(notice_block, frame_size);
+                    return;
+                }
+
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints(
