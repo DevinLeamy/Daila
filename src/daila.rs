@@ -111,9 +111,9 @@ pub struct Daila {
 impl Daila {
     pub fn new() -> Self {
         let mut activity_types = ActivityTypesStore::load();
-        let activity_tyes_len = activity_types.len();
+        let activity_types_len = activity_types.len();
 
-        if activity_tyes_len == 0 {
+        if activity_types_len == 0 {
             // Create a default activity.
             activity_types.create_new_activity(String::from("🏞️  Meditate"));
         }
@@ -122,7 +122,7 @@ impl Daila {
             activity_types: activity_types,
             activities: ActivitiesStore::load(),
             active_date: chrono::Local::now().date_naive(),
-            activity_selector_state: ActivitySelectorState::new(activity_tyes_len),
+            activity_selector_state: ActivitySelectorState::new(activity_types_len),
             running: false,
             state: DailaState::Default,
             activity_popup_state: None,
@@ -208,6 +208,13 @@ impl Daila {
                         self.state = DailaState::Default;
                         self.activity_popup_state = None;
                     }
+                    Some(ActivityPopupAction::Create(title)) => {
+                        self.state = DailaState::Default;
+                        self.activity_popup_state = None;
+                        self.activity_types.create_new_activity(title);
+                        self.activity_selector_state =
+                            ActivitySelectorState::new(self.activity_types.activity_types().len());
+                    }
                     _ => (),
                 }
             }
@@ -243,9 +250,15 @@ impl Daila {
 
     pub fn run_daila<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), io::Error> {
         self.running = true;
+        let mut flush = 0;
         while self.running {
+            flush += 1;
+            // Flush every 100 frames.
+            // Flushing every frame causes the terminal to flicker.
+            if flush == 100 {
+                terminal.clear().unwrap();
+            }
             terminal.draw(|frame| {
-                frame.render_widget(Clear, frame.size());
                 let heatmap_values = self.heatmap_values();
                 let heatmap = HeatMap::default().values(heatmap_values);
                 let selector_options = self.activity_selector_options();
