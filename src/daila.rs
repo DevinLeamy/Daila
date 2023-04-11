@@ -195,7 +195,8 @@ impl Daila {
                 if event.is_err() {
                     return;
                 }
-                let action = ConfirmationPopup::action_from_event(&event.unwrap());
+                let mut state = ConfirmationPopupState::default();
+                let action = ConfirmationPopup::handle_event(&event.unwrap(), &mut state);
                 match action {
                     Some(ConfirmationPopupAction::Accept) => self.state = DailaState::Default,
                     Some(ConfirmationPopupAction::Decline) => self.state = DailaState::Default,

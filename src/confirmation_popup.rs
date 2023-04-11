@@ -2,7 +2,7 @@ use crossterm::event::{Event, KeyCode};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
-    style::{Color, Style},
+    style::Style,
     widgets::{Block, Borders, StatefulWidget, Widget},
 };
 
@@ -22,7 +22,7 @@ pub struct ConfirmationPopupState {}
 impl Popup<ConfirmationPopupState> for ConfirmationPopup {
     type Action = ConfirmationPopupAction;
 
-    fn action_from_event(event: &Event) -> Option<Self::Action> {
+    fn handle_event(event: &Event, _state: &mut ConfirmationPopupState) -> Option<Self::Action> {
         match event {
             Event::Key(key_event) => match key_event.code {
                 KeyCode::Char('y') => Some(ConfirmationPopupAction::Accept),
