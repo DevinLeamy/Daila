@@ -9,6 +9,7 @@ use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Terminal;
 
 use crate::activites::{self, ActivitiesStore, Activity, ActivityOption, ActivityTypesStore};
+use crate::activity_popup::{ActivityPopup, ActivityPopupAction, ActivityPopupState};
 use crate::activity_selector::{ActivitySelector, ActivitySelectorState, ActivitySelectorValue};
 use crate::confirmation_popup::{
     ConfirmationPopup, ConfirmationPopupAction, ConfirmationPopupState,
@@ -43,7 +44,7 @@ impl DailaEvent {
                 KeyCode::Char('n') => Some(PreviousHeatmapActivity),
                 KeyCode::Char('s') => Some(SaveAndQuit),
                 KeyCode::Char('q') => Some(QuitWithoutSaving),
-                KeyCode::Char('p') => Some(OpenActivityPopup),
+                KeyCode::Char('e') => Some(OpenActivityPopup),
                 KeyCode::Char(c) => {
                     if c.is_digit(10) {
                         Some(ToggleActivity(c.to_digit(10).unwrap() as u32))
@@ -103,6 +104,8 @@ pub struct Daila {
     activity_selector_state: ActivitySelectorState,
     running: bool,
     state: DailaState,
+    // State for activity creator/editor.
+    activity_popup_state: Option<ActivityPopupState>,
 }
 
 impl Daila {
@@ -122,6 +125,7 @@ impl Daila {
             activity_selector_state: ActivitySelectorState::new(activity_tyes_len),
             running: false,
             state: DailaState::Default,
+            activity_popup_state: None,
         }
     }
 
@@ -182,7 +186,10 @@ impl Daila {
                             }
                         }
                     }
-                    OpenActivityPopup => self.state = DailaState::ConfirmationPopup,
+                    OpenActivityPopup => {
+                        self.state = DailaState::ActivityPopup;
+                        self.activity_popup_state = Some(ActivityPopupState::default());
+                    }
                     GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
                     GotoNextDay => self.active_date = self.active_date.succ_opt().unwrap(),
                     GotoToday => self.active_date = chrono::Local::now().date_naive(),
@@ -190,7 +197,20 @@ impl Daila {
                     PreviousHeatmapActivity => self.activity_selector_state.select_previous(),
                 }
             }
-            DailaState::ActivityPopup => {}
+            DailaState::ActivityPopup => {
+                if event.is_err() {
+                    return;
+                }
+                let mut state = self.activity_popup_state.as_mut().unwrap();
+                let action = ActivityPopup::handle_event(&event.unwrap(), &mut state);
+                match action {
+                    Some(ActivityPopupAction::Exit) => {
+                        self.state = DailaState::Default;
+                        self.activity_popup_state = None;
+                    }
+                    _ => (),
+                }
+            }
             DailaState::ConfirmationPopup => {
                 if event.is_err() {
                     return;
@@ -200,7 +220,7 @@ impl Daila {
                 match action {
                     Some(ConfirmationPopupAction::Accept) => self.state = DailaState::Default,
                     Some(ConfirmationPopupAction::Decline) => self.state = DailaState::Default,
-                    None => {}
+                    None => (),
                 }
             }
         };
@@ -225,6 +245,7 @@ impl Daila {
         self.running = true;
         while self.running {
             terminal.draw(|frame| {
+                frame.render_widget(Clear, frame.size());
                 let heatmap_values = self.heatmap_values();
                 let heatmap = HeatMap::default().values(heatmap_values);
                 let selector_options = self.activity_selector_options();
@@ -259,7 +280,7 @@ impl Daila {
                     &mut self.activity_selector_state,
                 );
 
-                if matches!(self.state, DailaState::ConfirmationPopup) {
+                if matches!(self.state, DailaState::ActivityPopup) {
                     let height_percentage = 50;
                     let width_percentage = 70;
 
@@ -290,9 +311,9 @@ impl Daila {
 
                     frame.render_widget(Clear, popup_area);
                     frame.render_stateful_widget(
-                        ConfirmationPopup::default(),
+                        ActivityPopup::default(),
                         popup_area,
-                        &mut ConfirmationPopupState::default(),
+                        &mut self.activity_popup_state.as_mut().unwrap(),
                     );
                 }
             })?;
