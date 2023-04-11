@@ -73,6 +73,13 @@ impl ActivityTypesStore {
         activity_type.name = name;
     }
 
+    /**
+     * Delete an activity type activity id.
+     */
+    pub fn delete_activity_type(&mut self, id: &ActivityId) {
+        self.types.remove(id);
+    }
+
     pub fn len(&self) -> usize {
         self.types.len()
     }

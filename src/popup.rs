@@ -24,7 +24,7 @@ pub fn render_in_frame<B: Backend, S, P: Popup<S>>(
     popup: P,
     state: &mut S,
 ) {
-    let area = centered_frame(area, width_percentage, height_percentage);
+    let area = centered_area(area, width_percentage, height_percentage);
     frame.render_widget(Clear, area);
     frame.render_stateful_widget(popup, area, state);
 }
@@ -32,7 +32,7 @@ pub fn render_in_frame<B: Backend, S, P: Popup<S>>(
 /**
  * Create the frame for a centered popup.
  */
-fn centered_frame(area: &Rect, width_percentage: u16, height_percentage: u16) -> Rect {
+pub fn centered_area(area: &Rect, width_percentage: u16, height_percentage: u16) -> Rect {
     // Center vertically.
     let popup_area = Layout::default()
         .direction(Direction::Vertical)

@@ -9,7 +9,9 @@ use ratatui::text::Text;
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 use ratatui::Terminal;
 
-use crate::activites::{self, ActivitiesStore, Activity, ActivityOption, ActivityTypesStore};
+use crate::activites::{
+    self, ActivitiesStore, Activity, ActivityId, ActivityOption, ActivityTypesStore,
+};
 use crate::activity_popup::{ActivityPopup, ActivityPopupAction, ActivityPopupState};
 use crate::activity_selector::{ActivitySelector, ActivitySelectorState, ActivitySelectorValue};
 use crate::confirmation_popup::{
@@ -18,6 +20,11 @@ use crate::confirmation_popup::{
 use crate::file::File;
 use crate::heatmap::HeatMap;
 use crate::popup::{self, Popup};
+
+pub enum ConfirmationAction {
+    SaveWithoutQuitting,
+    DeleteActivity(ActivityId),
+}
 
 use DailaEvent::*;
 
@@ -93,8 +100,13 @@ impl DailaEvent {
 
 pub enum DailaState {
     Default,
-    ActivityPopup { state: ActivityPopupState },
-    ConfirmationPopup { state: ConfirmationPopupState },
+    ActivityPopup {
+        state: ActivityPopupState,
+    },
+    ConfirmationPopup {
+        action: ConfirmationAction,
+        state: ConfirmationPopupState,
+    },
 }
 
 pub struct Daila {
@@ -161,7 +173,10 @@ impl Daila {
                 match daila_event {
                     QuitWithoutSaving => {
                         self.state = DailaState::ConfirmationPopup {
-                            state: ConfirmationPopupState::default(),
+                            action: ConfirmationAction::SaveWithoutQuitting,
+                            state: ConfirmationPopupState::new(String::from(
+                                "Quit without saving?",
+                            )),
                         }
                     }
                     SaveAndQuit => {
@@ -224,13 +239,24 @@ impl Daila {
                     }
                 }
             }
-            DailaState::ConfirmationPopup { ref mut state } => {
-                let action = ConfirmationPopup::handle_event(&event, state);
-                match action {
-                    Some(ConfirmationPopupAction::Accept) => self.state = DailaState::Default,
-                    Some(ConfirmationPopupAction::Decline) => self.state = DailaState::Default,
-                    None => (),
+            DailaState::ConfirmationPopup {
+                ref action,
+                ref mut state,
+            } => {
+                let popup_action = ConfirmationPopup::handle_event(&event, state)?;
+                match popup_action {
+                    ConfirmationPopupAction::Accept => match action {
+                        ConfirmationAction::SaveWithoutQuitting => {
+                            // Quit, without saving
+                            self.running = false;
+                        }
+                        ConfirmationAction::DeleteActivity(id) => {
+                            self.activity_types.delete_activity_type(id);
+                        }
+                    },
+                    ConfirmationPopupAction::Decline => (),
                 }
+                self.state = DailaState::Default;
             }
         };
 
@@ -329,7 +355,10 @@ impl Daila {
                         ActivityPopup::default(),
                         state,
                     ),
-                    DailaState::ConfirmationPopup { ref mut state } => popup::render_in_frame(
+                    DailaState::ConfirmationPopup {
+                        action: _action,
+                        ref mut state,
+                    } => popup::render_in_frame(
                         frame,
                         &display_size,
                         50,
