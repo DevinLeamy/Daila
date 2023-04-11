@@ -6,18 +6,18 @@ use ratatui::backend::Backend;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::Text;
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 use ratatui::Terminal;
 
 use crate::activites::{self, ActivitiesStore, Activity, ActivityOption, ActivityTypesStore};
 use crate::activity_popup::{ActivityPopup, ActivityPopupAction, ActivityPopupState};
 use crate::activity_selector::{ActivitySelector, ActivitySelectorState, ActivitySelectorValue};
-// use crate::confirmation_popup::{
-//     ConfirmationPopup, ConfirmationPopupAction, ConfirmationPopupState,
-// };
+use crate::confirmation_popup::{
+    ConfirmationPopup, ConfirmationPopupAction, ConfirmationPopupState,
+};
 use crate::file::File;
 use crate::heatmap::HeatMap;
-use crate::popup::Popup;
+use crate::popup::{self, Popup};
 
 use DailaEvent::*;
 
@@ -93,8 +93,8 @@ impl DailaEvent {
 
 pub enum DailaState {
     Default,
-    ActivityPopup,
-    // ConfirmationPopup,
+    ActivityPopup { state: ActivityPopupState },
+    ConfirmationPopup { state: ConfirmationPopupState },
 }
 
 pub struct Daila {
@@ -105,8 +105,6 @@ pub struct Daila {
     activity_selector_state: ActivitySelectorState,
     running: bool,
     state: DailaState,
-    // State for activity creator/editor.
-    activity_popup_state: Option<ActivityPopupState>,
 }
 
 impl Daila {
@@ -126,7 +124,6 @@ impl Daila {
             activity_selector_state: ActivitySelectorState::new(activity_types_len),
             running: false,
             state: DailaState::Default,
-            activity_popup_state: None,
         }
     }
 
@@ -152,22 +149,21 @@ impl Daila {
         Paragraph::new(Text::raw(string.to_owned())).block(Block::default().borders(Borders::ALL))
     }
 
-    fn parse_input_event(&self, event: &Result<Event, io::Error>) -> Option<DailaEvent> {
-        match event {
-            Ok(event) => DailaEvent::from_event(event),
-            Err(_) => None,
-        }
+    fn parse_input_event(&self, event: &Event) -> Option<DailaEvent> {
+        DailaEvent::from_event(event)
     }
 
-    fn handle_event(&mut self, event: Result<Event, io::Error>) {
+    fn handle_event(&mut self, event: Result<Event, io::Error>) -> Option<()> {
+        let event = event.unwrap();
         match self.state {
             DailaState::Default => {
-                let daila_event = self.parse_input_event(&event);
-                if daila_event.is_none() {
-                    return;
-                }
-                match daila_event.unwrap() {
-                    QuitWithoutSaving => self.running = false,
+                let daila_event = self.parse_input_event(&event)?;
+                match daila_event {
+                    QuitWithoutSaving => {
+                        self.state = DailaState::ConfirmationPopup {
+                            state: ConfirmationPopupState::default(),
+                        }
+                    }
                     SaveAndQuit => {
                         self.running = false;
                         // Save any unsaved changes.
@@ -189,16 +185,18 @@ impl Daila {
                         }
                     }
                     CreateNewActivity => {
-                        self.state = DailaState::ActivityPopup;
-                        self.activity_popup_state = Some(ActivityPopupState::new_creator());
+                        self.state = DailaState::ActivityPopup {
+                            state: ActivityPopupState::new_creator(),
+                        };
                     }
                     EditSelectedActivity => {
                         if let Some(activity_option) = self.selected_activity_option() {
-                            self.state = DailaState::ActivityPopup;
-                            self.activity_popup_state = Some(ActivityPopupState::new_editor(
-                                activity_option.name().to_owned(),
-                                activity_option.activity_id(),
-                            ));
+                            self.state = DailaState::ActivityPopup {
+                                state: ActivityPopupState::new_editor(
+                                    activity_option.name().to_owned(),
+                                    activity_option.activity_id(),
+                                ),
+                            };
                         }
                     }
                     GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
@@ -208,46 +206,35 @@ impl Daila {
                     PreviousHeatmapActivity => self.activity_selector_state.select_previous(),
                 }
             }
-            DailaState::ActivityPopup => {
-                if event.is_err() {
-                    return;
-                }
-                let mut state = self.activity_popup_state.as_mut().unwrap();
-                let action = ActivityPopup::handle_event(&event.unwrap(), &mut state);
-                if action.is_none() {
-                    return;
-                }
-                match action.unwrap() {
+            DailaState::ActivityPopup { ref mut state } => {
+                let action = ActivityPopup::handle_event(&event, state)?;
+                match action {
                     ActivityPopupAction::Exit => {
                         self.state = DailaState::Default;
-                        self.activity_popup_state = None;
                     }
                     ActivityPopupAction::CreateActivity(title) => {
                         self.state = DailaState::Default;
-                        self.activity_popup_state = None;
                         self.activity_types.create_new_activity(title);
                         self.activity_selector_state =
                             ActivitySelectorState::new(self.activity_types.activity_types().len());
                     }
                     ActivityPopupAction::EditActivity(title, id) => {
                         self.state = DailaState::Default;
-                        self.activity_popup_state = None;
                         self.activity_types.update_activity(id, title);
                     }
                 }
-            } // DailaState::ConfirmationPopup => {
-              //     if event.is_err() {
-              //         return;
-              //     }
-              //     let mut state = ConfirmationPopupState::default();
-              //     let action = ConfirmationPopup::handle_event(&event.unwrap(), &mut state);
-              //     match action {
-              //         Some(ConfirmationPopupAction::Accept) => self.state = DailaState::Default,
-              //         Some(ConfirmationPopupAction::Decline) => self.state = DailaState::Default,
-              //         None => (),
-              //     }
-              // }
+            }
+            DailaState::ConfirmationPopup { ref mut state } => {
+                let action = ConfirmationPopup::handle_event(&event, state);
+                match action {
+                    Some(ConfirmationPopupAction::Accept) => self.state = DailaState::Default,
+                    Some(ConfirmationPopupAction::Decline) => self.state = DailaState::Default,
+                    None => (),
+                }
+            }
         };
+
+        Some(())
     }
 
     fn activity_selector_options(&self) -> Vec<ActivityOption> {
@@ -333,41 +320,24 @@ impl Daila {
                     &mut self.activity_selector_state,
                 );
 
-                if matches!(self.state, DailaState::ActivityPopup) {
-                    let height_percentage = 50;
-                    let width_percentage = 70;
-
-                    // Center the popup inside the activity.
-                    let popup_area = Layout::default()
-                        .direction(Direction::Vertical)
-                        .constraints(
-                            [
-                                Constraint::Percentage((100 - height_percentage) / 2),
-                                Constraint::Percentage(height_percentage),
-                                Constraint::Percentage((100 - height_percentage) / 2),
-                            ]
-                            .as_ref(),
-                        )
-                        .split(display_size);
-
-                    let popup_area = Layout::default()
-                        .direction(Direction::Horizontal)
-                        .constraints(
-                            [
-                                Constraint::Percentage((100 - width_percentage) / 2),
-                                Constraint::Percentage(width_percentage),
-                                Constraint::Percentage((100 - width_percentage) / 2),
-                            ]
-                            .as_ref(),
-                        )
-                        .split(popup_area[1])[1];
-
-                    frame.render_widget(Clear, popup_area);
-                    frame.render_stateful_widget(
+                match &mut self.state {
+                    DailaState::ActivityPopup { ref mut state } => popup::render_in_frame(
+                        frame,
+                        &display_size,
+                        50,
+                        70,
                         ActivityPopup::default(),
-                        popup_area,
-                        &mut self.activity_popup_state.as_mut().unwrap(),
-                    );
+                        state,
+                    ),
+                    DailaState::ConfirmationPopup { ref mut state } => popup::render_in_frame(
+                        frame,
+                        &display_size,
+                        50,
+                        70,
+                        ConfirmationPopup::default(),
+                        state,
+                    ),
+                    _ => (),
                 }
             })?;
             self.handle_event(event::read());
