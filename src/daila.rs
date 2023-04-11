@@ -11,9 +11,9 @@ use ratatui::Terminal;
 use crate::activites::{self, ActivitiesStore, Activity, ActivityOption, ActivityTypesStore};
 use crate::activity_popup::{ActivityPopup, ActivityPopupAction, ActivityPopupState};
 use crate::activity_selector::{ActivitySelector, ActivitySelectorState, ActivitySelectorValue};
-use crate::confirmation_popup::{
-    ConfirmationPopup, ConfirmationPopupAction, ConfirmationPopupState,
-};
+// use crate::confirmation_popup::{
+//     ConfirmationPopup, ConfirmationPopupAction, ConfirmationPopupState,
+// };
 use crate::file::File;
 use crate::heatmap::HeatMap;
 use crate::popup::Popup;
@@ -93,7 +93,7 @@ impl DailaEvent {
 pub enum DailaState {
     Default,
     ActivityPopup,
-    ConfirmationPopup,
+    // ConfirmationPopup,
 }
 
 pub struct Daila {
@@ -217,19 +217,18 @@ impl Daila {
                     }
                     _ => (),
                 }
-            }
-            DailaState::ConfirmationPopup => {
-                if event.is_err() {
-                    return;
-                }
-                let mut state = ConfirmationPopupState::default();
-                let action = ConfirmationPopup::handle_event(&event.unwrap(), &mut state);
-                match action {
-                    Some(ConfirmationPopupAction::Accept) => self.state = DailaState::Default,
-                    Some(ConfirmationPopupAction::Decline) => self.state = DailaState::Default,
-                    None => (),
-                }
-            }
+            } // DailaState::ConfirmationPopup => {
+              //     if event.is_err() {
+              //         return;
+              //     }
+              //     let mut state = ConfirmationPopupState::default();
+              //     let action = ConfirmationPopup::handle_event(&event.unwrap(), &mut state);
+              //     match action {
+              //         Some(ConfirmationPopupAction::Accept) => self.state = DailaState::Default,
+              //         Some(ConfirmationPopupAction::Decline) => self.state = DailaState::Default,
+              //         None => (),
+              //     }
+              // }
         };
     }
 

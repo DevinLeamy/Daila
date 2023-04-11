@@ -1,19 +1,19 @@
 use crossterm::event::{Event, KeyCode};
 use ratatui::{
     buffer::Buffer,
-    layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
+    layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
 };
 
-use crate::{activites::ActivityId, popup::Popup};
+use crate::popup::Popup;
 
 #[derive(Default)]
 pub struct ActivityPopup {}
 
 pub enum ActivityPopupAction {
     Create(String),
-    Edit(ActivityId, String),
+    // Edit(ActivityId, String),
     Exit,
 }
 

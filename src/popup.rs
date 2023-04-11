@@ -8,7 +8,5 @@ pub trait Popup<S>: StatefulWidget<State = S> {
     /**
      * Handles an input event and update internal state.
      */
-    fn handle_event(event: &Event, state: &mut S) -> Option<Self::Action> {
-        None
-    }
+    fn handle_event(event: &Event, state: &mut S) -> Option<Self::Action>;
 }
