@@ -6,21 +6,21 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
 };
 
-use crate::popup::Popup;
+use crate::{activites::ActivityId, popup::Popup};
 
 #[derive(Default)]
 pub struct ActivityPopup {}
 
 pub enum ActivityPopupAction {
-    Create(String),
-    // Edit(ActivityId, String),
+    CreateActivity(String),
+    EditActivity(ActivityId, String),
     Exit,
 }
 
 #[derive(Copy, Clone)]
 enum CursorPosition {
     TextInput,
-    CreateButton,
+    CreateOrEditButton,
     ExitButton,
 }
 
@@ -39,32 +39,60 @@ impl CursorPosition {
                 }
                 _ => CursorPosition::TextInput,
             },
-            CursorPosition::CreateButton => match direction {
+            CursorPosition::CreateOrEditButton => match direction {
                 KeyCode::Up => CursorPosition::TextInput,
                 KeyCode::Left => CursorPosition::ExitButton,
-                _ => CursorPosition::CreateButton,
+                _ => CursorPosition::CreateOrEditButton,
             },
             CursorPosition::ExitButton => match direction {
                 KeyCode::Up => CursorPosition::TextInput,
-                KeyCode::Right => CursorPosition::CreateButton,
+                KeyCode::Right => CursorPosition::CreateOrEditButton,
                 _ => CursorPosition::ExitButton,
             },
         }
     }
 }
 
+enum PopupType {
+    Create,
+    Edit,
+}
+
+/**
+ * State for an activity editor or creator popup.
+ */
 pub struct ActivityPopupState {
     last_cursor_position: Option<CursorPosition>,
     cursor_position: CursorPosition,
     text_input: String,
+    popup_type: PopupType,
+    activity_id: Option<ActivityId>,
 }
 
-impl Default for ActivityPopupState {
-    fn default() -> Self {
+impl ActivityPopupState {
+    /**
+     * Initialize state for an activity editor popup.
+     */
+    pub fn new_editor(activity_title: String, activity_id: ActivityId) -> Self {
+        Self {
+            last_cursor_position: None,
+            cursor_position: CursorPosition::TextInput,
+            text_input: activity_title,
+            popup_type: PopupType::Edit,
+            activity_id: Some(activity_id),
+        }
+    }
+
+    /**
+     * Initialize state for an activity creator popup.
+     */
+    pub fn new_creator() -> Self {
         Self {
             last_cursor_position: None,
             cursor_position: CursorPosition::TextInput,
             text_input: String::new(),
+            popup_type: PopupType::Create,
+            activity_id: None,
         }
     }
 }
@@ -77,9 +105,15 @@ impl Popup<ActivityPopupState> for ActivityPopup {
             Event::Key(key_event) => match key_event.code {
                 KeyCode::Enter => match state.cursor_position {
                     CursorPosition::TextInput => None,
-                    CursorPosition::CreateButton => {
-                        Some(ActivityPopupAction::Create(state.text_input.clone()))
-                    }
+                    CursorPosition::CreateOrEditButton => match state.popup_type {
+                        PopupType::Create => Some(ActivityPopupAction::CreateActivity(
+                            state.text_input.clone(),
+                        )),
+                        PopupType::Edit => Some(ActivityPopupAction::EditActivity(
+                            state.activity_id.unwrap(),
+                            state.text_input.clone(),
+                        )),
+                    },
                     CursorPosition::ExitButton => Some(ActivityPopupAction::Exit),
                 },
                 KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down => {
@@ -170,11 +204,14 @@ impl StatefulWidget for ActivityPopup {
                 },
             ));
         let create = Block::default()
-            .title("create")
+            .title(match state.popup_type {
+                PopupType::Create => "create",
+                PopupType::Edit => "save",
+            })
             .borders(Borders::NONE)
             .title_alignment(Alignment::Center)
             .style(Style::default().bg(
-                if matches!(state.cursor_position, CursorPosition::CreateButton) {
+                if matches!(state.cursor_position, CursorPosition::CreateOrEditButton) {
                     selected_color
                 } else {
                     not_selected_color

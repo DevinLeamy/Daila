@@ -6,7 +6,7 @@ use ratatui::backend::Backend;
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::Text;
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph, Widget};
+use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use ratatui::Terminal;
 
 use crate::activites::{self, ActivitiesStore, Activity, ActivityOption, ActivityTypesStore};
@@ -31,7 +31,8 @@ enum DailaEvent {
     ToggleActivity(u32),
     SaveAndQuit,
     QuitWithoutSaving,
-    OpenActivityPopup,
+    CreateNewActivity,
+    EditSelectedActivity,
 }
 
 impl DailaEvent {
@@ -45,13 +46,10 @@ impl DailaEvent {
                 KeyCode::Char('n') => Some(PreviousHeatmapActivity),
                 KeyCode::Char('s') => Some(SaveAndQuit),
                 KeyCode::Char('q') => Some(QuitWithoutSaving),
-                KeyCode::Char('e') => Some(OpenActivityPopup),
-                KeyCode::Char(c) => {
-                    if c.is_digit(10) {
-                        Some(ToggleActivity(c.to_digit(10).unwrap() as u32))
-                    } else {
-                        None
-                    }
+                KeyCode::Char('c') => Some(CreateNewActivity),
+                KeyCode::Char('e') => Some(EditSelectedActivity),
+                KeyCode::Char(c) if c.is_digit(10) => {
+                    Some(ToggleActivity(c.to_digit(10).unwrap() as u32))
                 }
                 _ => None,
             },
@@ -68,7 +66,8 @@ impl DailaEvent {
             ToggleActivity(_) => "%d",
             SaveAndQuit => "s",
             QuitWithoutSaving => "q",
-            OpenActivityPopup => "p",
+            CreateNewActivity => "c",
+            EditSelectedActivity => "e",
         };
 
         String::from(instruction)
@@ -84,7 +83,8 @@ impl DailaEvent {
             ToggleActivity(_) => "toggle activity",
             SaveAndQuit => "save and quit",
             QuitWithoutSaving => "quit without saving",
-            OpenActivityPopup => "add new activity type",
+            CreateNewActivity => "add new activity type",
+            EditSelectedActivity => "edit the selected activity type",
         };
 
         String::from(description)
@@ -138,7 +138,8 @@ impl Daila {
             DailaEvent::NextHeatmapActivity,
             DailaEvent::PreviousHeatmapActivity,
             DailaEvent::ToggleActivity(0),
-            DailaEvent::OpenActivityPopup,
+            DailaEvent::CreateNewActivity,
+            DailaEvent::EditSelectedActivity,
             DailaEvent::SaveAndQuit,
             DailaEvent::QuitWithoutSaving,
         ];
@@ -187,9 +188,18 @@ impl Daila {
                             }
                         }
                     }
-                    OpenActivityPopup => {
+                    CreateNewActivity => {
                         self.state = DailaState::ActivityPopup;
-                        self.activity_popup_state = Some(ActivityPopupState::default());
+                        self.activity_popup_state = Some(ActivityPopupState::new_creator());
+                    }
+                    EditSelectedActivity => {
+                        if let Some(activity_option) = self.selected_activity_option() {
+                            self.state = DailaState::ActivityPopup;
+                            self.activity_popup_state = Some(ActivityPopupState::new_editor(
+                                activity_option.name().to_owned(),
+                                activity_option.activity_id(),
+                            ));
+                        }
                     }
                     GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
                     GotoNextDay => self.active_date = self.active_date.succ_opt().unwrap(),
@@ -204,19 +214,26 @@ impl Daila {
                 }
                 let mut state = self.activity_popup_state.as_mut().unwrap();
                 let action = ActivityPopup::handle_event(&event.unwrap(), &mut state);
-                match action {
-                    Some(ActivityPopupAction::Exit) => {
+                if action.is_none() {
+                    return;
+                }
+                match action.unwrap() {
+                    ActivityPopupAction::Exit => {
                         self.state = DailaState::Default;
                         self.activity_popup_state = None;
                     }
-                    Some(ActivityPopupAction::Create(title)) => {
+                    ActivityPopupAction::CreateActivity(title) => {
                         self.state = DailaState::Default;
                         self.activity_popup_state = None;
                         self.activity_types.create_new_activity(title);
                         self.activity_selector_state =
                             ActivitySelectorState::new(self.activity_types.activity_types().len());
                     }
-                    _ => (),
+                    ActivityPopupAction::EditActivity(title, id) => {
+                        self.state = DailaState::Default;
+                        self.activity_popup_state = None;
+                        self.activity_types.update_activity(id, title);
+                    }
                 }
             } // DailaState::ConfirmationPopup => {
               //     if event.is_err() {
@@ -239,6 +256,14 @@ impl Daila {
             &self.activities,
             self.active_date.clone(),
         )
+    }
+
+    fn selected_activity_option(&self) -> Option<ActivityOption> {
+        if let Some(index) = self.activity_selector_state.selected_index() {
+            self.activity_selector_options().get(index).cloned()
+        } else {
+            None
+        }
     }
 
     fn heatmap_values(&self) -> Vec<&Activity> {

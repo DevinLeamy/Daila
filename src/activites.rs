@@ -54,11 +54,23 @@ pub struct ActivityTypesStore {
 }
 
 impl ActivityTypesStore {
+    /**
+     * Create a new activity type. A random new ActivityId is given to the
+     * activity type.
+     */
     pub fn create_new_activity(&mut self, name: String) -> ActivityId {
         let id = self.next_unused_id();
         let activity_type = ActivityType::new(id, name);
         self.types.insert(activity_type.id, activity_type);
         id
+    }
+
+    /**
+     * Update the name of an activity type.
+     */
+    pub fn update_activity(&mut self, name: String, activity_id: ActivityId) {
+        let activity_type = self.types.get_mut(&activity_id).unwrap();
+        activity_type.name = name;
     }
 
     pub fn len(&self) -> usize {
