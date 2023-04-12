@@ -1,16 +1,36 @@
-# Daila + tui-heatmap
+# _Daila_
+>  _(Daily + Data)_
 
-### daila
+<p>
+  <a href="#installation">Installation</a> •
+  <a href="#usage">Usage</a> 
+</p>
 
--   [x] Add interactive display for activities
--   [x] Add goto next day and goto previous day
--   [ ] Add option to add a new activity
--   [ ] Make serialization objects smaller
--   [ ] Make serializations ordered
+***Daila*** is a command line application for quickly and easily recording and visualizing daily data. 
 
-### tui-heatmap
+## Installation
 
--   [ ] Display labels for months
--   [ ] Display divider between months
--   [ ] LERP heat colors
--   [ ] Make it an independent crate
+### Cargo
+```bash
+$ cargo install daila
+```
+
+### From source
+```bash
+$ git clone https://github.com/DevinLeamy/daila
+$ cd daila
+$ cargo build [--release]
+```
+Then add '***$PWD/target/debug/***' or '***$PWD/target/release/***' to your path.
+
+## Usage
+```bash
+$ daila
+```
+
+### Demo
+https://user-images.githubusercontent.com/45083086/231334889-779508bd-bc84-4ed1-99a5-de81692bae40.mov
+
+
+
+
