@@ -9,6 +9,8 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, StatefulWidget, Widget},
 };
 
+const ACTIVITIES_PER_ROW: u16 = 3;
+
 #[derive(Clone)]
 pub struct ActivitySelectorState {
     activity_count: usize,
@@ -22,15 +24,31 @@ impl ActivitySelectorState {
             selected_index: if activity_count == 0 { None } else { Some(0) },
         };
     }
-    pub fn select_next(&mut self) {
+    pub fn select_right(&mut self) {
         if let Some(index) = self.selected_index {
             self.selected_index = Some((index + 1) % self.activity_count);
         }
     }
 
-    pub fn select_previous(&mut self) {
+    pub fn select_left(&mut self) {
         if let Some(index) = self.selected_index {
             self.selected_index = Some((index + self.activity_count - 1) % self.activity_count);
+        }
+    }
+
+    pub fn select_up(&mut self) {
+        if let Some(index) = self.selected_index {
+            if index >= ACTIVITIES_PER_ROW as usize {
+                self.selected_index = Some(index - ACTIVITIES_PER_ROW as usize);
+            }
+        }
+    }
+
+    pub fn select_down(&mut self) {
+        if let Some(index) = self.selected_index {
+            if (index + ACTIVITIES_PER_ROW as usize) < self.activity_count {
+                self.selected_index = Some(index + ACTIVITIES_PER_ROW as usize);
+            }
         }
     }
 
@@ -52,7 +70,6 @@ pub struct ActivitySelector<'a, T: ActivitySelectorValue> {
     title: String,
     values: Vec<&'a T>,
     row_height: u16,
-    values_per_row: u16,
 }
 
 impl<'a, T: ActivitySelectorValue> Default for ActivitySelector<'a, T> {
@@ -61,7 +78,6 @@ impl<'a, T: ActivitySelectorValue> Default for ActivitySelector<'a, T> {
             title: String::from("Activity Selector"),
             values: vec![],
             row_height: 5,
-            values_per_row: 3,
         }
     }
 }
@@ -85,9 +101,9 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
         let item = self.values[index];
         let name = item.name();
         let (display_string, color) = if item.completed() {
-            (format!("✅ {}: {}", index + 1, name), Color::Green)
+            (format!("✅ {}", name), Color::Green)
         } else {
-            (format!("―  {}: {}", index + 1, name), Color::White)
+            (format!("―  {}", name), Color::White)
         };
         for j in 0..min(display_string.len(), area.width as usize) {
             buffer
@@ -111,10 +127,10 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
 
     pub fn height(&self) -> u16 {
         let values = self.values.len() as u16;
-        let rows = if values % self.values_per_row != 0 {
-            values / self.values_per_row + 1
+        let rows = if values % ACTIVITIES_PER_ROW != 0 {
+            values / ACTIVITIES_PER_ROW + 1
         } else {
-            values / self.values_per_row
+            values / ACTIVITIES_PER_ROW
         };
         // +2: Upper and lower border.
         rows * self.row_height + 2
@@ -137,14 +153,14 @@ impl<'a, T: ActivitySelectorValue> StatefulWidget for ActivitySelector<'a, T> {
             .direction(Direction::Horizontal)
             .margin(1)
             .constraints(vec![
-                Constraint::Ratio(1, self.values_per_row as u32);
-                self.values_per_row as usize
+                Constraint::Ratio(1, ACTIVITIES_PER_ROW as u32);
+                ACTIVITIES_PER_ROW as usize
             ]);
 
         let mut row_cells: Vec<Rect> = vec![];
         for i in 0..self.values.len() {
-            let row = i as u16 / self.values_per_row;
-            if i as u16 % self.values_per_row == 0 {
+            let row = i as u16 / ACTIVITIES_PER_ROW;
+            if i as u16 % ACTIVITIES_PER_ROW == 0 {
                 row_cells = row_layout
                     .clone()
                     .split(Rect {
@@ -155,7 +171,7 @@ impl<'a, T: ActivitySelectorValue> StatefulWidget for ActivitySelector<'a, T> {
                     })
                     .to_vec();
             }
-            let grid_index = (i as u16 % self.values_per_row) as usize;
+            let grid_index = (i as u16 % ACTIVITIES_PER_ROW) as usize;
             self.render_value(row_cells[grid_index], buffer, i, state.selected(i));
         }
         border.render(area, buffer);

@@ -33,9 +33,11 @@ enum DailaEvent {
     GotoPreviousDay,
     GotoNextDay,
     GotoToday,
-    NextHeatmapActivity,
-    PreviousHeatmapActivity,
-    ToggleActivity(u32),
+    ActivityUp,
+    ActivityDown,
+    ActivityLeft,
+    ActivityRight,
+    ToggleSelectedActivity,
     SaveAndQuit,
     QuitWithoutSaving,
     CreateNewActivity,
@@ -46,41 +48,43 @@ enum DailaEvent {
 impl DailaEvent {
     fn from_event(event: &Event) -> Option<Self> {
         match event {
-            Event::Key(key_event) => match key_event.code {
-                KeyCode::Char('k') => Some(GotoNextDay),
-                KeyCode::Char('j') => Some(GotoPreviousDay),
-                KeyCode::Char('t') => Some(GotoToday),
-                KeyCode::Char('m') => Some(NextHeatmapActivity),
-                KeyCode::Char('n') => Some(PreviousHeatmapActivity),
-                KeyCode::Char('s') => Some(SaveAndQuit),
-                KeyCode::Char('q') => Some(QuitWithoutSaving),
-                KeyCode::Char('c') => Some(CreateNewActivity),
-                KeyCode::Char('e') => Some(EditSelectedActivity),
-                KeyCode::Char('d') => Some(DeleteSelectedActivity),
-                KeyCode::Char(c) if c.is_digit(10) => {
-                    Some(ToggleActivity(c.to_digit(10).unwrap() as u32))
-                }
-                _ => None,
-            },
+            Event::Key(key_event) => Self::from_keycode(key_event.code),
             _ => None,
         }
     }
-    fn to_instruction(&self) -> String {
-        let instruction = match &self {
-            GotoNextDay => "k",
-            GotoPreviousDay => "j",
-            GotoToday => "t",
-            NextHeatmapActivity => "m",
-            PreviousHeatmapActivity => "n",
-            ToggleActivity(_) => "%d",
-            SaveAndQuit => "s",
-            QuitWithoutSaving => "q",
-            CreateNewActivity => "c",
-            EditSelectedActivity => "e",
-            DeleteSelectedActivity => "d",
-        };
 
-        String::from(instruction)
+    fn from_keycode(code: KeyCode) -> Option<Self> {
+        match code {
+            KeyCode::Char('f') => Some(GotoNextDay),
+            KeyCode::Char('F') => Some(GotoPreviousDay),
+            KeyCode::Char('r') => Some(GotoToday),
+            KeyCode::Right => Some(ActivityRight),
+            KeyCode::Left => Some(ActivityLeft),
+            KeyCode::Up => Some(ActivityUp),
+            KeyCode::Down => Some(ActivityDown),
+            KeyCode::Char('s') => Some(SaveAndQuit),
+            KeyCode::Char('q') => Some(QuitWithoutSaving),
+            KeyCode::Char('c') => Some(CreateNewActivity),
+            KeyCode::Char('e') => Some(EditSelectedActivity),
+            KeyCode::Char('d') => Some(DeleteSelectedActivity),
+            KeyCode::Char('a') => Some(ToggleSelectedActivity),
+            _ => None,
+        }
+    }
+
+    fn to_char(&self) -> char {
+        match &self {
+            GotoNextDay => 'f',
+            GotoPreviousDay => 'F',
+            GotoToday => 'r',
+            ToggleSelectedActivity => 'a',
+            SaveAndQuit => 's',
+            QuitWithoutSaving => 'q',
+            CreateNewActivity => 'c',
+            EditSelectedActivity => 'e',
+            DeleteSelectedActivity => 'd',
+            _ => '_',
+        }
     }
 
     fn to_description(&self) -> String {
@@ -88,14 +92,13 @@ impl DailaEvent {
             GotoNextDay => "next day",
             GotoPreviousDay => "previous day",
             GotoToday => "today",
-            NextHeatmapActivity => "next heatmap activity",
-            PreviousHeatmapActivity => "previous heatmap activity",
-            ToggleActivity(_) => "toggle activity",
+            ToggleSelectedActivity => "toggle selected activity",
             SaveAndQuit => "save and quit",
             QuitWithoutSaving => "quit without saving",
             CreateNewActivity => "add new activity type",
             EditSelectedActivity => "edit the selected activity type",
             DeleteSelectedActivity => "delete the selected activity type",
+            _ => "unknown",
         };
 
         String::from(description)
@@ -148,9 +151,7 @@ impl Daila {
             DailaEvent::GotoPreviousDay,
             DailaEvent::GotoNextDay,
             DailaEvent::GotoToday,
-            DailaEvent::NextHeatmapActivity,
-            DailaEvent::PreviousHeatmapActivity,
-            DailaEvent::ToggleActivity(0),
+            DailaEvent::ToggleSelectedActivity,
             DailaEvent::CreateNewActivity,
             DailaEvent::EditSelectedActivity,
             DailaEvent::DeleteSelectedActivity,
@@ -159,7 +160,7 @@ impl Daila {
         ];
         let strings: Vec<String> = instructions
             .into_iter()
-            .map(|event| format!("{}: {}", event.to_instruction(), event.to_description()))
+            .map(|event| format!("{}: {}", event.to_char(), event.to_description()))
             .collect();
         let string = strings.join("\n");
 
@@ -190,14 +191,14 @@ impl Daila {
                         self.activity_types.save();
                         self.activities.save();
                     }
-                    DailaEvent::ToggleActivity(index) => {
+                    DailaEvent::ToggleSelectedActivity => {
                         // Toggle the activity.
-                        if let Some(option) =
-                            self.activity_selector_options().get((index - 1) as usize)
-                        {
-                            let activity =
-                                Activity::new(option.activity_id(), self.active_date.clone());
-                            if option.completed() {
+                        if let Some(activity_option) = self.selected_activity_option() {
+                            let activity = Activity::new(
+                                activity_option.activity_id(),
+                                self.active_date.clone(),
+                            );
+                            if activity_option.completed() {
                                 self.activities.remove_activity(activity);
                             } else {
                                 self.activities.add_activity(activity);
@@ -235,8 +236,10 @@ impl Daila {
                     GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
                     GotoNextDay => self.active_date = self.active_date.succ_opt().unwrap(),
                     GotoToday => self.active_date = chrono::Local::now().date_naive(),
-                    NextHeatmapActivity => self.activity_selector_state.select_next(),
-                    PreviousHeatmapActivity => self.activity_selector_state.select_previous(),
+                    ActivityLeft => self.activity_selector_state.select_left(),
+                    ActivityRight => self.activity_selector_state.select_right(),
+                    ActivityUp => self.activity_selector_state.select_up(),
+                    ActivityDown => self.activity_selector_state.select_down(),
                 }
             }
             DailaState::ActivityPopup { ref mut state } => {
@@ -340,7 +343,7 @@ impl Daila {
                         .style(Style::default().fg(Color::Red))
                         .border_type(BorderType::Rounded)
                         .borders(Borders::ALL);
-                    frame.render_widget(notice_block, frame_size);
+                    frame.render_widget(notice_block, display_size);
                     return;
                 }
 
