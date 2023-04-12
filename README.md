@@ -2,6 +2,7 @@
 
 > _(Daily + Data)_
 
+[![Crates.io](https://img.shields.io/crates/v/daila.svg)](https://crates.io/crates/daila)
 <p>
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> 
@@ -11,13 +12,13 @@
 
 ## Installation
 
-### Cargo
+#### Cargo
 
 ```bash
 $ cargo install daila
 ```
 
-### From source
+#### From source
 
 ```bash
 $ git clone https://github.com/DevinLeamy/daila
@@ -33,6 +34,6 @@ Then add '**_$PWD/target/debug/_**' or '**_$PWD/target/release/_**' to your path
 $ daila
 ```
 
-### Demo
+#### Demo
 
 https://user-images.githubusercontent.com/45083086/231334889-779508bd-bc84-4ed1-99a5-de81692bae40.mov
