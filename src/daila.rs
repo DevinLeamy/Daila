@@ -40,6 +40,7 @@ enum DailaEvent {
     QuitWithoutSaving,
     CreateNewActivity,
     EditSelectedActivity,
+    DeleteSelectedActivity,
 }
 
 impl DailaEvent {
@@ -55,6 +56,7 @@ impl DailaEvent {
                 KeyCode::Char('q') => Some(QuitWithoutSaving),
                 KeyCode::Char('c') => Some(CreateNewActivity),
                 KeyCode::Char('e') => Some(EditSelectedActivity),
+                KeyCode::Char('d') => Some(DeleteSelectedActivity),
                 KeyCode::Char(c) if c.is_digit(10) => {
                     Some(ToggleActivity(c.to_digit(10).unwrap() as u32))
                 }
@@ -75,6 +77,7 @@ impl DailaEvent {
             QuitWithoutSaving => "q",
             CreateNewActivity => "c",
             EditSelectedActivity => "e",
+            DeleteSelectedActivity => "d",
         };
 
         String::from(instruction)
@@ -92,6 +95,7 @@ impl DailaEvent {
             QuitWithoutSaving => "quit without saving",
             CreateNewActivity => "add new activity type",
             EditSelectedActivity => "edit the selected activity type",
+            DeleteSelectedActivity => "delete the selected activity type",
         };
 
         String::from(description)
@@ -149,6 +153,7 @@ impl Daila {
             DailaEvent::ToggleActivity(0),
             DailaEvent::CreateNewActivity,
             DailaEvent::EditSelectedActivity,
+            DailaEvent::DeleteSelectedActivity,
             DailaEvent::SaveAndQuit,
             DailaEvent::QuitWithoutSaving,
         ];
@@ -212,6 +217,19 @@ impl Daila {
                                     activity_option.activity_id(),
                                 ),
                             };
+                        }
+                    }
+                    DeleteSelectedActivity => {
+                        if let Some(activity_option) = self.selected_activity_option() {
+                            self.state = DailaState::ConfirmationPopup {
+                                action: ConfirmationAction::DeleteActivity(
+                                    activity_option.activity_id(),
+                                ),
+                                state: ConfirmationPopupState::new(format!(
+                                    "Confirm deletion of: {}",
+                                    activity_option.name()
+                                )),
+                            }
                         }
                     }
                     GotoPreviousDay => self.active_date = self.active_date.pred_opt().unwrap(),
