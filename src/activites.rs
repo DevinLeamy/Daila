@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #[cfg(not(debug_assertions))]
 use directories::ProjectDirs;
+use rand::Rng;
 use std::{collections::BTreeMap, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -85,9 +86,10 @@ impl ActivityTypesStore {
     }
 
     fn next_unused_id(&self) -> ActivityId {
-        let mut id = 0;
+        let mut rng = rand::thread_rng();
+        let mut id = rng.gen::<u32>();
         while self.types.contains_key(&ActivityId(id)) {
-            id += 1;
+            id = rng.gen::<u32>();
         }
 
         ActivityId(id)

@@ -1,6 +1,6 @@
 [package]
 name = "daila"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["devinleamy <devinleamy@gmail.com>"]
 license = "MIT"
@@ -9,6 +9,7 @@ readme = "README.md"
 homepage = "https://github.com/devinleamy/daila"
 repository = "https://github.com/DevinLeamy/daila"
 keywords = ["cli", "data", "visualization", "daily", "heatmap"]
+categories = ["command-line-utilities", "command-line-interface"]
 
 [dependencies]
 chrono = { version = "0.4.24", features = ["serde"] }

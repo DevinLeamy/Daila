@@ -124,17 +124,14 @@ pub struct Daila {
     activity_selector_state: ActivitySelectorState,
     running: bool,
     state: DailaState,
+    // Refresh the display.
+    refresh: bool,
 }
 
 impl Daila {
     pub fn new() -> Self {
-        let mut activity_types = ActivityTypesStore::load();
+        let activity_types = ActivityTypesStore::load();
         let activity_types_len = activity_types.len();
-
-        if activity_types_len == 0 {
-            // Create a default activity.
-            activity_types.create_new_activity(String::from("🏞️  Meditate"));
-        }
 
         Self {
             activity_types: activity_types,
@@ -143,6 +140,7 @@ impl Daila {
             activity_selector_state: ActivitySelectorState::new(activity_types_len),
             running: false,
             state: DailaState::Default,
+            refresh: false,
         }
     }
 
@@ -178,6 +176,7 @@ impl Daila {
                 let daila_event = self.parse_input_event(&event)?;
                 match daila_event {
                     QuitWithoutSaving => {
+                        self.refresh = true;
                         self.state = DailaState::ConfirmationPopup {
                             action: ConfirmationAction::SaveWithoutQuitting,
                             state: ConfirmationPopupState::new(String::from(
@@ -206,11 +205,13 @@ impl Daila {
                         }
                     }
                     CreateNewActivity => {
+                        self.refresh = true;
                         self.state = DailaState::ActivityPopup {
                             state: ActivityPopupState::new_creator(),
                         };
                     }
                     EditSelectedActivity => {
+                        self.refresh = true;
                         if let Some(activity_option) = self.selected_activity_option() {
                             self.state = DailaState::ActivityPopup {
                                 state: ActivityPopupState::new_editor(
@@ -221,6 +222,7 @@ impl Daila {
                         }
                     }
                     DeleteSelectedActivity => {
+                        self.refresh = true;
                         if let Some(activity_option) = self.selected_activity_option() {
                             self.state = DailaState::ConfirmationPopup {
                                 action: ConfirmationAction::DeleteActivity(
@@ -244,6 +246,7 @@ impl Daila {
             }
             DailaState::ActivityPopup { ref mut state } => {
                 let action = ActivityPopup::handle_event(&event, state)?;
+                self.refresh = true;
                 match action {
                     ActivityPopupAction::Exit => {
                         self.state = DailaState::Default;
@@ -273,6 +276,9 @@ impl Daila {
                         }
                         ConfirmationAction::DeleteActivity(id) => {
                             self.activity_types.delete_activity_type(id);
+                            self.activity_selector_state = ActivitySelectorState::new(
+                                self.activity_types.activity_types().len(),
+                            );
                         }
                     },
                     ConfirmationPopupAction::Decline => (),
@@ -301,6 +307,9 @@ impl Daila {
     }
 
     fn heatmap_values(&self) -> Vec<&Activity> {
+        if self.activity_selector_state.selected_index().is_none() {
+            return vec![];
+        }
         let activity_types = self.activity_types.activity_types();
         let selected_activity =
             activity_types[self.activity_selector_state.selected_index().unwrap()];
@@ -309,13 +318,10 @@ impl Daila {
 
     pub fn run_daila<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> Result<(), io::Error> {
         self.running = true;
-        let mut flush = 0;
         while self.running {
-            flush += 1;
-            // Flush every 100 frames.
-            // Flushing every frame causes the terminal to flicker.
-            if flush == 100 {
+            if self.refresh {
                 terminal.clear().unwrap();
+                self.refresh = false;
             }
             terminal.draw(|frame| {
                 let heatmap_values = self.heatmap_values();
