@@ -1,9 +1,14 @@
 [package]
-name = "daila-rs"
+name = "daila"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["devinleamy <devinleamy@gmail.com>"]
+license = "MIT"
+description = "CLI for tracking and visualizing daily activities."
+readme = "README.md"
+homepage = "https://github.com/devinleamy/daila"
+repository = "https://github.com/DevinLeamy/daila"
+keywords = ["cli", "data", "visualization", "daily", "heatmap"]
 
 [dependencies]
 chrono = { version = "0.4.24", features = ["serde"] }

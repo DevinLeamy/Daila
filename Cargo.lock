@@ -149,7 +149,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "daila-rs"
+name = "daila"
 version = "0.1.0"
 dependencies = [
  "chrono",
