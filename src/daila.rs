@@ -335,7 +335,7 @@ impl Daila {
                 let display_size = Rect {
                     x: frame_size.x,
                     y: frame_size.y,
-                    width: heatmap.width(),
+                    width: std::cmp::min(heatmap.width(), frame.size().width),
                     height: frame_size.height,
                 };
 
@@ -344,7 +344,14 @@ impl Daila {
                 if required_height > frame_size.height || required_width > frame_size.width {
                     // Display notice to make the terminal bigger.
                     let notice_block = Block::default()
-                        .title("  Make the terminal larger  ")
+                        .title(format!(
+                            "  Make the terminal {} ",
+                            if required_height > frame_size.height {
+                                "taller"
+                            } else {
+                                "wider"
+                            }
+                        ))
                         .title_alignment(Alignment::Center)
                         .style(Style::default().fg(Color::Red))
                         .border_type(BorderType::Rounded)

@@ -259,8 +259,9 @@ impl<'a, T: HeatMapValue> HeatMap<'a, T> {
             .date_range
             .1
             .signed_duration_since(self.date_range.0)
-            .num_days() as u16;
-        days / self.rows * 2
+            .num_days() as u16
+            + 1;
+        ((days + (self.rows - 1)) / self.rows) * 2
     }
 
     pub fn height(&self) -> u16 {
