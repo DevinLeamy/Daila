@@ -3,6 +3,7 @@
 > _(Daily + Data)_
 
 [![Crates.io](https://img.shields.io/crates/v/daila.svg)](https://crates.io/crates/daila)
+
 <p>
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> 
@@ -33,6 +34,16 @@ Then add '**_$PWD/target/debug/_**' or '**_$PWD/target/release/_**' to your path
 ```bash
 $ daila
 ```
+
+#### Controls
+
+-   `Arrow keys`: Change the selected activity
+-   `a`: Toggle the selected activity
+-   `e/d`: edit/delete the selected activity
+-   `c`: Create a new activity type
+-   `F/f/r`: Change day (prev/next/today)
+-   `s`: Save and quit
+-   `q`: Quit
 
 #### Demo
 
