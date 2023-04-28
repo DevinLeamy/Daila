@@ -122,7 +122,7 @@ impl<'a, T: ActivitySelectorValue> ActivitySelector<'a, T> {
     }
 
     fn formatted_title(&self) -> String {
-        format!("{: ^width$}", self.title, width = 30)
+        format!("{: ^width$}", self.title, width = 34)
     }
 
     pub fn height(&self) -> u16 {

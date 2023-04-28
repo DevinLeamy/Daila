@@ -55,9 +55,9 @@ impl DailaEvent {
 
     fn from_keycode(code: KeyCode) -> Option<Self> {
         match code {
-            KeyCode::Char('f') => Some(GotoNextDay),
-            KeyCode::Char('F') => Some(GotoPreviousDay),
-            KeyCode::Char('r') => Some(GotoToday),
+            KeyCode::Char('d') => Some(GotoNextDay),
+            KeyCode::Char('a') => Some(GotoPreviousDay),
+            KeyCode::Char('t') => Some(GotoToday),
             KeyCode::Right => Some(ActivityRight),
             KeyCode::Left => Some(ActivityLeft),
             KeyCode::Up => Some(ActivityUp),
@@ -66,23 +66,23 @@ impl DailaEvent {
             KeyCode::Char('q') => Some(QuitWithoutSaving),
             KeyCode::Char('c') => Some(CreateNewActivity),
             KeyCode::Char('e') => Some(EditSelectedActivity),
-            KeyCode::Char('d') => Some(DeleteSelectedActivity),
-            KeyCode::Char('a') => Some(ToggleSelectedActivity),
+            KeyCode::Char('x') => Some(DeleteSelectedActivity),
+            KeyCode::Char(' ') => Some(ToggleSelectedActivity),
             _ => None,
         }
     }
 
     fn to_char(&self) -> char {
         match &self {
-            GotoNextDay => 'f',
-            GotoPreviousDay => 'F',
-            GotoToday => 'r',
-            ToggleSelectedActivity => 'a',
+            GotoNextDay => 'd',
+            GotoPreviousDay => 'a',
+            GotoToday => 't',
+            ToggleSelectedActivity => ' ',
             SaveAndQuit => 's',
             QuitWithoutSaving => 'q',
             CreateNewActivity => 'c',
             EditSelectedActivity => 'e',
-            DeleteSelectedActivity => 'd',
+            DeleteSelectedActivity => 'x',
             _ => '_',
         }
     }
@@ -330,7 +330,13 @@ impl Daila {
                 let frame_size = frame.size();
                 let selector = ActivitySelector::<ActivityOption>::default()
                     .values(selector_options.iter().map(|o| o).collect())
-                    .title(self.active_date.format("%A, %-d %B, %C%y").to_string());
+                    .title(if self.active_date == chrono::Local::now().date_naive() {
+                        self.active_date
+                            .format("(Today) %A, %-d %B, %C%y")
+                            .to_string()
+                    } else {
+                        self.active_date.format("%A, %-d %B, %C%y").to_string()
+                    });
 
                 let display_size = Rect {
                     x: frame_size.x,
