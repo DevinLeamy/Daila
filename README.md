@@ -38,10 +38,10 @@ $ daila
 #### Controls
 
 -   `Arrow keys`: Change the selected activity
--   `a`: Toggle the selected activity
--   `e/d`: edit/delete the selected activity
+-   ` `: Toggle the selected activity
+-   `e/x`: edit/delete the selected activity
 -   `c`: Create a new activity type
--   `F/f/r`: Change day (prev/next/today)
+-   `a/d/t`: Change day (prev/next/today)
 -   `s`: Save and quit
 -   `q`: Quit
 
